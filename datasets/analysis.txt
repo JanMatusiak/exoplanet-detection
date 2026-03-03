@@ -1,0 +1,32 @@
+KOI:
+'kepid'
+'koi_disposition'
+
+
+1. 'koi_period' - Orbital Period [days]
+2. 'koi_impact' - Impact Parameter
+3. 'koi_duration' - Transit Duration [hrs]
+4. 'koi_depth' - Transit Depth [ppm]
+5. 'koi_prad' - Planetary Radius [Earth radii]
+6. 'koi_teq' - Equilibrium Temperature [K]
+7. 'koi_insol' - Insolation Flux [Earth flux]
+8. 'koi_model_snr' - Transit Signal-to-Noise
+9. 'koi_steff' - Stellar Effective Temperature [K]
+10. 'koi_slogg' - Stellar Surface Gravity [log10(cm/s**2)]
+11. 'koi_srad' - Stellar Radius [Solar radii]
+12. 'koi_kepmag' - Kepler-band [mag]
+
+
+
+TOI:
+1. 'pl_orbper' - Planet Orbital Period Value [days]
+
+3. 'pl_trandurh' - Planet Transit Duration Value [hours]
+4. 'pl_trandep' - Planet Transit Depth Value [ppm]
+5. 'pl_rade' - Planet Radius Value [R_Earth]
+6. 'pl_eqt' - Planet Equilibrium Temperature Value [K]
+7. 'pl_insol' - Planet Insolation Value [Earth flux]
+8. 
+9. st_teff        Stellar Effective Temperature Value [K]
+10. st_logg        Stellar log(g) Value [cm/s**2]
+11. st_rad:         Stellar Radius Value [R_Sun]
