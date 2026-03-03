@@ -30,3 +30,67 @@ TOI:
 9. st_teff        Stellar Effective Temperature Value [K]
 10. st_logg        Stellar log(g) Value [cm/s**2]
 11. st_rad:         Stellar Radius Value [R_Sun]
+
+
+
+KOI:
+Grouping: kepid:          KepID
+
+Labeling: koi_disposition: Exoplanet Archive Disposition
+
+Features (all errors:)
+1. koi_period:     Orbital Period [days]
+
+# errors; both these must be present to be meaningful
+2. koi_eccen:      Eccentricity
+3. koi_longp:      Long. of Periastron [deg]
+
+4. koi_impact:     Impact Parameter
+5. koi_duration:   Transit Duration [hrs]
+6. koi_ingress:    Ingress Duration [hrs]
+7. koi_depth:      Transit Depth [ppm]
+8. koi_ror:        Planet-Star Radius Ratio
+9. koi_srho:       Fitted Stellar Density [g/cm**3]
+10. koi_incl:       Inclination [deg]
+11. koi_dor:        Planet-Star Distance over Star Radius
+12. koi_prad:       Planetary Radius [Earth radii]
+13. koi_sma:        Orbit Semi-Major Axis [au]
+14. koi_teq:        Equilibrium Temperature [K]
+15. koi_insol:      Insolation Flux [Earth flux]
+16. koi_steff:      Stellar Effective Temperature [K]
+17. koi_slogg:      Stellar Surface Gravity [log10(cm/s**2)]
+18. koi_smet:       Stellar Metallicity [dex]
+19. koi_srad:       Stellar Radius [Solar radii]
+20. koi_smass:      Stellar Mass [Solar mass]
+21. koi_sage:       Stellar Age [Gyr]
+
+
+
+# vetting stats
+# COLUMN koi_sparprov:   Stellar Parameter Provenance
+
+# COLUMN koi_fittype:    Planetary Fit Type
+# COLUMN koi_limbdark_mod: Limb Darkening Model
+# COLUMN koi_ldm_coeff4: Limb Darkening Coeff. 4
+# COLUMN koi_ldm_coeff3: Limb Darkening Coeff. 3
+# COLUMN koi_ldm_coeff2: Limb Darkening Coeff. 2
+# COLUMN koi_ldm_coeff1: Limb Darkening Coeff. 1
+# COLUMN koi_parm_prov:  Parameters Provenance
+# COLUMN koi_trans_mod:  Transit Model
+
+# COLUMN koi_max_sngle_ev: Maximum Single Event Statistic
+# COLUMN koi_max_mult_ev: Maximum Multiple Event Statistic
+# COLUMN koi_model_snr:  Transit Signal-to-Noise
+# COLUMN koi_num_transits: Number of Transits
+# COLUMN koi_bin_oedp_sig: Odd-Even Depth Comparision Statistic
+# COLUMN koi_model_dof:  Degrees of Freedom
+# COLUMN koi_model_chisq: Chi-Square
+
+# COLUMN koi_count:      Number of Planets
+# COLUMN koi_tce_plnt_num: TCE Planet Number
+# COLUMN koi_tce_delivname: TCE Delivery
+
+
+TOI:
+
+
