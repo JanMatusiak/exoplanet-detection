@@ -1,96 +1,53 @@
 KOI:
-'kepid'
-'koi_disposition'
-
-
-1. 'koi_period' - Orbital Period [days]
-2. 'koi_impact' - Impact Parameter
-3. 'koi_duration' - Transit Duration [hrs]
-4. 'koi_depth' - Transit Depth [ppm]
-5. 'koi_prad' - Planetary Radius [Earth radii]
-6. 'koi_teq' - Equilibrium Temperature [K]
-7. 'koi_insol' - Insolation Flux [Earth flux]
-8. 'koi_model_snr' - Transit Signal-to-Noise
-9. 'koi_steff' - Stellar Effective Temperature [K]
-10. 'koi_slogg' - Stellar Surface Gravity [log10(cm/s**2)]
-11. 'koi_srad' - Stellar Radius [Solar radii]
-12. 'koi_kepmag' - Kepler-band [mag]
-
-
-
-TOI:
-1. 'pl_orbper' - Planet Orbital Period Value [days]
-
-3. 'pl_trandurh' - Planet Transit Duration Value [hours]
-4. 'pl_trandep' - Planet Transit Depth Value [ppm]
-5. 'pl_rade' - Planet Radius Value [R_Earth]
-6. 'pl_eqt' - Planet Equilibrium Temperature Value [K]
-7. 'pl_insol' - Planet Insolation Value [Earth flux]
-8. 
-9. st_teff        Stellar Effective Temperature Value [K]
-10. st_logg        Stellar log(g) Value [cm/s**2]
-11. st_rad:         Stellar Radius Value [R_Sun]
-
-
-
-KOI:
 Grouping: kepid:          KepID
-
 Labeling: koi_disposition: Exoplanet Archive Disposition
 
-Features (all errors:)
+Features:
+# errors; both 2 and 3 must be present to be meaningful
 1. koi_period:     Orbital Period [days]
-
-# errors; both these must be present to be meaningful
 2. koi_eccen:      Eccentricity
 3. koi_longp:      Long. of Periastron [deg]
-
 4. koi_impact:     Impact Parameter
 5. koi_duration:   Transit Duration [hrs]
-6. koi_ingress:    Ingress Duration [hrs]
-7. koi_depth:      Transit Depth [ppm]
-8. koi_ror:        Planet-Star Radius Ratio
-9. koi_srho:       Fitted Stellar Density [g/cm**3]
-10. koi_incl:       Inclination [deg]
-11. koi_dor:        Planet-Star Distance over Star Radius
-12. koi_prad:       Planetary Radius [Earth radii]
-13. koi_sma:        Orbit Semi-Major Axis [au]
-14. koi_teq:        Equilibrium Temperature [K]
-15. koi_insol:      Insolation Flux [Earth flux]
-16. koi_steff:      Stellar Effective Temperature [K]
-17. koi_slogg:      Stellar Surface Gravity [log10(cm/s**2)]
-18. koi_smet:       Stellar Metallicity [dex]
-19. koi_srad:       Stellar Radius [Solar radii]
-20. koi_smass:      Stellar Mass [Solar mass]
-21. koi_sage:       Stellar Age [Gyr]
+6. koi_depth:      Transit Depth [ppm]
+7. koi_ror:        Planet-Star Radius Ratio
+8. koi_srho:       Fitted Stellar Density [g/cm**3]
+9. koi_incl:       Inclination [deg]
+10. koi_dor:        Planet-Star Distance over Star Radius
+11. koi_prad:       Planetary Radius [Earth radii]
+12. koi_sma:        Orbit Semi-Major Axis [au]
+13. koi_teq:        Equilibrium Temperature [K]
+14. koi_insol:      Insolation Flux [Earth flux]
+15. koi_steff:      Stellar Effective Temperature [K]
+16. koi_slogg:      Stellar Surface Gravity [log10(cm/s**2)]
+17. koi_smet:       Stellar Metallicity [dex]
+18. koi_srad:       Stellar Radius [Solar radii]
+19. koi_smass:      Stellar Mass [Solar mass]
+20. koi_sage:       Stellar Age [Gyr]
 
 
+K2P:
+Grouping: pl_name:        Planet Name
+Labeling: disposition:    Archive Disposition
 
-# vetting stats
-# COLUMN koi_sparprov:   Stellar Parameter Provenance
-
-# COLUMN koi_fittype:    Planetary Fit Type
-# COLUMN koi_limbdark_mod: Limb Darkening Model
-# COLUMN koi_ldm_coeff4: Limb Darkening Coeff. 4
-# COLUMN koi_ldm_coeff3: Limb Darkening Coeff. 3
-# COLUMN koi_ldm_coeff2: Limb Darkening Coeff. 2
-# COLUMN koi_ldm_coeff1: Limb Darkening Coeff. 1
-# COLUMN koi_parm_prov:  Parameters Provenance
-# COLUMN koi_trans_mod:  Transit Model
-
-# COLUMN koi_max_sngle_ev: Maximum Single Event Statistic
-# COLUMN koi_max_mult_ev: Maximum Multiple Event Statistic
-# COLUMN koi_model_snr:  Transit Signal-to-Noise
-# COLUMN koi_num_transits: Number of Transits
-# COLUMN koi_bin_oedp_sig: Odd-Even Depth Comparision Statistic
-# COLUMN koi_model_dof:  Degrees of Freedom
-# COLUMN koi_model_chisq: Chi-Square
-
-# COLUMN koi_count:      Number of Planets
-# COLUMN koi_tce_plnt_num: TCE Planet Number
-# COLUMN koi_tce_delivname: TCE Delivery
-
-
-TOI:
-
-
+Features:
+1. pl_orbper:      Orbital Period [days]
+2. pl_orbeccen:    Eccentricity
+3. pl_orblper:     Argument of Periastron [deg]
+4. pl_imppar:      Impact Parameter
+5. pl_trandur:     Transit Duration [hours]
+6. pl_trandep:     Transit Depth [%] [unit]
+7. pl_ratror:      Ratio of Planet to Stellar Radius
+8. st_dens:        Stellar Density [g/cm**3] [not fitted]
+9. pl_orbincl:     Inclination [deg]
+10. pl_ratdor:      Ratio of Semi-Major Axis to Stellar Radius
+11. pl_rade:        Planet Radius [Earth Radius]
+12. pl_orbsmax:     Orbit Semi-Major Axis [au]
+13. pl_eqt:         Equilibrium Temperature [K]
+14. pl_insol:       Insolation Flux [Earth Flux]
+15. st_teff:        Stellar Effective Temperature [K]
+16. st_logg:        Stellar Surface Gravity [log10(cm/s**2)]
+17. st_met:         Stellar Metallicity [dex]
+18. st_rad:         Stellar Radius [Solar Radius]
+19. st_mass:        Stellar Mass [Solar mass]
+20. st_age:         Stellar Age [Gyr]
