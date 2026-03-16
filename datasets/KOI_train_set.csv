@@ -1,4 +1,4 @@
-group_id,label,orbital_period_days,eccentricity,impact_parameter,transit_duration_hours,transit_depth_ppm,radius_ratio_rp_rs,inclination_deg,a_over_rs,planet_radius_rearth,semi_major_axis_au,equilibrium_temp_k,insolation_earth,stellar_teff_k,stellar_logg_cgs,stellar_metallicity_dex,stellar_radius_rsun,stellar_mass_msun
+group_id,label,orbital_period_days,eccentricity,impact_parameter,transit_duration_hours,transit_depth,radius_ratio_rp_rs,inclination_deg,a_over_rs,planet_radius_rearth,semi_major_axis_au,equilibrium_temp_k,insolation_earth,stellar_teff_k,stellar_logg_cgs,stellar_metallicity_dex,stellar_radius_rsun,stellar_mass_msun
 10797460,1,9.48803557,0.0,0.146,2.9575,615.8,0.022344,89.66,24.81,2.26,0.0853,793.0,93.59,5455.0,4.467,0.14,0.927,0.919
 10797460,1,54.4183827,0.0,0.586,4.507,874.8,0.027954,89.57,77.9,2.83,0.2734,443.0,9.11,5455.0,4.467,0.14,0.927,0.919
 10848459,0,1.736952453,0.0,1.276,2.40641,8079.2,0.387394,67.09,3.278,33.46,0.0267,1395.0,891.96,5805.0,4.564,-0.52,0.791,0.836
