@@ -19,9 +19,9 @@ from exoplanet_detector.config import (
 )
 from exoplanet_detector.features.feature_selection import (
     BASE_DROP_COLUMNS,
-    K2P_COLUMNS_SET,
+    K2P_PHYSICAL_COLUMNS_SET,
     K2P_RENAME_MAP,
-    KOI_COLUMNS_SET,
+    KOI_PHYSICAL_COLUMNS_SET,
     KOI_RENAME_MAP,
 )
 
@@ -31,10 +31,6 @@ def _read_csv(path: Path) -> pd.DataFrame:
 
 
 def load_koi_full(path: Path = KOI_RAW_FILE) -> pd.DataFrame:
-    return _read_csv(path)
-
-
-def load_toi_full(path: Path = TOI_RAW_FILE) -> pd.DataFrame:
     return _read_csv(path)
 
 

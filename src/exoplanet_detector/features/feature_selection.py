@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Sequence
 
-KOI_COLUMNS_SET = (
+KOI_PHYSICAL_COLUMNS_SET = (
     "kepid",
     "koi_disposition",
     "koi_period",
@@ -28,7 +28,7 @@ KOI_COLUMNS_SET = (
     "koi_sage",
 )
 
-K2P_COLUMNS_SET = (
+K2P_PHYSICAL_COLUMNS_SET = (
     "pl_name",
     "disposition",
     "pl_orbper",
@@ -132,5 +132,5 @@ def model_feature_columns(columns: Sequence[str]) -> list[str]:
 
 
 # Backward-compatible aliases kept for existing notebook imports.
-koi_columns_set = list(KOI_COLUMNS_SET)
-k2p_columns_set = list(K2P_COLUMNS_SET)
+koi_columns_set = list(KOI_PHYSICAL_COLUMNS_SET)
+k2p_columns_set = list(K2P_PHYSICAL_COLUMNS_SET)
