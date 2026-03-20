@@ -4,7 +4,6 @@ from exoplanet_detector.data.load_data import (
     convert_transit_depth_percent_to_ppm,
     load_k2p_full,
     load_koi_full,
-    load_toi_full,
     map_labels,
     prepare_harmonized_datasets,
     process_dataset,
