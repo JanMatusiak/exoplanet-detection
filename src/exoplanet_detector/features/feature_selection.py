@@ -152,3 +152,24 @@ FINAL_FEATURE_COLUMNS = (
     "stellar_logg_cgs",
     "stellar_metallicity_dex",
 )
+
+# Physical ranges used for basic outlier screening.
+# `None` means the bound is intentionally left open.
+PHYSICAL_INTERVALS: dict[str, tuple[float | None, float | None]] = {
+    "orbital_period_days": (0.0, None),
+    "impact_parameter": (0.0, 2.0),
+    "transit_duration_hours": (0.0, None),
+    "transit_depth": (0.0, None),
+    "radius_ratio_rp_rs": (0.0, None),
+    "inclination_deg": (0.0, 90.0),
+    "a_over_rs": (0.0, None),
+    "planet_radius_rearth": (0.0, None),
+    "semi_major_axis_au": (0.0, None),
+    "equilibrium_temp_k": (0.0, None),
+    "insolation_earth": (0.0, None),
+    "stellar_teff_k": (0.0, None),
+    "stellar_logg_cgs": (0.0, 6.0),
+    "stellar_metallicity_dex": (-5.0, 1.0),
+    "stellar_radius_rsun": (0.0, None),
+    "stellar_mass_msun": (0.0, None),
+}

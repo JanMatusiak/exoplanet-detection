@@ -12,6 +12,7 @@ from exoplanet_detector.features.feature_selection import (
     KOI_PHYSICAL_COLUMNS_SET,
     KOI_RENAME_MAP,
     LEFT_SKEWED_COLUMNS,
+    PHYSICAL_INTERVALS,
     RIGHT_SKEWED_COLUMNS,
 )
 from exoplanet_detector.features.preprocessing import (
@@ -35,6 +36,7 @@ __all__ = [
     "KOI_PHYSICAL_COLUMNS_SET",
     "KOI_RENAME_MAP",
     "LEFT_SKEWED_COLUMNS",
+    "PHYSICAL_INTERVALS",
     "RIGHT_SKEWED_COLUMNS",
     "apply_left_skew_reflect_log1p",
     "apply_right_skew_log1p",
