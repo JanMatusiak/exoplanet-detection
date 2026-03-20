@@ -34,6 +34,10 @@ def load_koi_full(path: Path = KOI_RAW_FILE) -> pd.DataFrame:
     return _read_csv(path)
 
 
+def load_toi_full(path: Path = TOI_RAW_FILE) -> pd.DataFrame:
+    return _read_csv(path)
+
+
 def load_k2p_full(path: Path = K2P_RAW_FILE, *, default_only: bool = True) -> pd.DataFrame:
     df = _read_csv(path)
     if default_only and K2P_DEFAULT_FLAG_COLUMN in df.columns:
@@ -111,8 +115,8 @@ def prepare_harmonized_datasets(
     koi_raw = load_koi_full() if koi_df is None else koi_df
     k2p_raw = load_k2p_full(default_only=True) if k2p_df is None else k2p_df
 
-    koi_harmonized = select_and_rename_columns(koi_raw, KOI_COLUMNS_SET, KOI_RENAME_MAP)
-    k2p_harmonized = select_and_rename_columns(k2p_raw, K2P_COLUMNS_SET, K2P_RENAME_MAP)
+    koi_harmonized = select_and_rename_columns(koi_raw, KOI_PHYSICAL_COLUMNS_SET, KOI_RENAME_MAP)
+    k2p_harmonized = select_and_rename_columns(k2p_raw, K2P_PHYSICAL_COLUMNS_SET, K2P_RENAME_MAP)
 
     koi_labeled, koi_candidates = split_labeled_and_candidates(koi_harmonized)
     k2p_labeled, k2p_candidates = split_labeled_and_candidates(k2p_harmonized)

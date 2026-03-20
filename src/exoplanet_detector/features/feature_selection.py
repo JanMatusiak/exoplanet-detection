@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Sequence
-
+# A set of physical columns from raw KOI_full.csv
 KOI_PHYSICAL_COLUMNS_SET = (
     "kepid",
     "koi_disposition",
@@ -28,6 +27,7 @@ KOI_PHYSICAL_COLUMNS_SET = (
     "koi_sage",
 )
 
+# A set of physical columns from raw K2P_full.csv
 K2P_PHYSICAL_COLUMNS_SET = (
     "pl_name",
     "disposition",
@@ -100,12 +100,14 @@ K2P_RENAME_MAP = {
     "st_age": "stellar_age_gyr",
 }
 
-# Dropped in notebook 01 due high missingness.
+# Dropped in notebook 01 due to high missingness.
 BASE_DROP_COLUMNS = ("arg_periastron_deg", "stellar_age_gyr")
 
-# Dropped in notebook 02 based on low variance / correlation analysis.
-ANALYSIS_DROP_COLUMNS = (
-    "eccentricity",
+# Dropped in notebook 02 due to constant value.
+CONSTANT_VALUE_DROP_COLUMNS = ("eccentricity", )
+
+# Dropped in notebook 02 due to high correlation.
+CORRELATION_DROP_COLUMNS = (
     "semi_major_axis_au",
     "equilibrium_temp_k",
     "radius_ratio_rp_rs",
@@ -113,6 +115,11 @@ ANALYSIS_DROP_COLUMNS = (
     "stellar_mass_msun",
 )
 
+# Dropped in notebook 02 (constant + correlation based).
+ANALYSIS_DROP_COLUMNS = CONSTANT_VALUE_DROP_COLUMNS + CORRELATION_DROP_COLUMNS
+
+# Columns from notebook 02 which were right-skewed
+# and displayed no correlation between each other
 RIGHT_SKEWED_COLUMNS = (
     "insolation_earth",
     "transit_depth",
@@ -122,15 +129,26 @@ RIGHT_SKEWED_COLUMNS = (
     "transit_duration_hours",
 )
 
+# Columns from notebook 02 which were left-skewed
 LEFT_SKEWED_COLUMNS = ("inclination_deg",)
 
+# Columns from notebook 02 which were right-skewed
+EXPLORATORY_RIGHT_SKEWED_COLUMNS = RIGHT_SKEWED_COLUMNS + (
+    "semi_major_axis_au",
+    "equilibrium_temp_k",
+)
 
-def model_feature_columns(columns: Sequence[str]) -> list[str]:
-    """Return final model features after notebook-driven drops."""
-    excluded = set(ANALYSIS_DROP_COLUMNS) | {"group_id", "label"}
-    return [col for col in columns if col not in excluded]
-
-
-# Backward-compatible aliases kept for existing notebook imports.
-koi_columns_set = list(KOI_PHYSICAL_COLUMNS_SET)
-k2p_columns_set = list(K2P_PHYSICAL_COLUMNS_SET)
+# A final set of features at the end of notebook 02
+FINAL_FEATURE_COLUMNS = (
+    "orbital_period_days",
+    "impact_parameter",
+    "transit_duration_hours",
+    "transit_depth",
+    "inclination_deg",
+    "a_over_rs",
+    "planet_radius_rearth",
+    "insolation_earth",
+    "stellar_teff_k",
+    "stellar_logg_cgs",
+    "stellar_metallicity_dex",
+)
