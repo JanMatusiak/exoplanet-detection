@@ -11,7 +11,6 @@ PROCESSED_DATA_DIR = DATA_DIR / "processed"
 
 KOI_RAW_FILE = RAW_DATA_DIR / "KOI_full.csv"
 K2P_RAW_FILE = RAW_DATA_DIR / "K2P_full.csv"
-TOI_RAW_FILE = RAW_DATA_DIR / "TOI_full.csv"
 
 KOI_TRAIN_FILE = PROCESSED_DATA_DIR / "KOI_train_set.csv"
 KOI_TEST_FILE = PROCESSED_DATA_DIR / "KOI_test_set.csv"

@@ -23,7 +23,6 @@ __all__ = [
     "create_processed_splits_from_raw",
     "load_k2p_full",
     "load_koi_full",
-    "load_toi_full",
     "map_labels",
     "prepare_harmonized_datasets",
     "process_dataset",

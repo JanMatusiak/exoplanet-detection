@@ -15,7 +15,6 @@ from exoplanet_detector.config import (
     KOI_RAW_FILE,
     LABEL_MAP,
     TARGET_COLUMN,
-    TOI_RAW_FILE,
 )
 from exoplanet_detector.features.feature_selection import (
     BASE_DROP_COLUMNS,
@@ -31,10 +30,6 @@ def _read_csv(path: Path) -> pd.DataFrame:
 
 
 def load_koi_full(path: Path = KOI_RAW_FILE) -> pd.DataFrame:
-    return _read_csv(path)
-
-
-def load_toi_full(path: Path = TOI_RAW_FILE) -> pd.DataFrame:
     return _read_csv(path)
 
 
