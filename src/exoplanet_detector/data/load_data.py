@@ -53,15 +53,6 @@ def select_and_rename_columns(
     return df.loc[:, columns].rename(columns=rename_map).copy()
 
 
-def process_dataset(
-    df: pd.DataFrame,
-    columns_set: Iterable[str],
-    rename_map: Mapping[str, str],
-) -> pd.DataFrame:
-    """Backward-compatible wrapper for notebook prototype code."""
-    return select_and_rename_columns(df, columns_set, rename_map)
-
-
 def split_labeled_and_candidates(
     df: pd.DataFrame,
     *,

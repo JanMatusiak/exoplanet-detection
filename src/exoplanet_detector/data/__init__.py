@@ -24,7 +24,6 @@ __all__ = [
     "load_koi_full",
     "map_labels",
     "prepare_harmonized_datasets",
-    "process_dataset",
     "select_and_rename_columns",
     "split_labeled_and_candidates",
     "stratified_group_train_test_split",
