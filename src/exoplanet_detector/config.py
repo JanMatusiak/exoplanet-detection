@@ -33,3 +33,31 @@ CANDIDATE_LABEL = "CANDIDATE"
 
 K2P_DEFAULT_FLAG_COLUMN = "default_flag"
 K2P_DEFAULT_FLAG_VALUE = 1
+
+ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
+MODEL_SEARCH_ARTIFACTS_DIR = ARTIFACTS_DIR / "model_search"
+EVALUATION_ARTIFACTS_DIR = ARTIFACTS_DIR / "evaluation"
+DEPLOYMENT_ARTIFACTS_DIR = ARTIFACTS_DIR / "deployment"
+
+DEFAULT_RUN_TAG = "v1"
+MIN_PRECISION_FLOOR = 0.5
+MIN_RECALL_FLOOR = 0.5
+
+
+def get_run_artifact_dirs(run_tag: str = DEFAULT_RUN_TAG, *, create: bool = False) -> dict[str, Path]:
+    """
+    Return model-search/evaluation/deployment artifact directories for a run tag.
+
+    Args:
+        run_tag: Shared experiment/version identifier (e.g., ``v1``, ``v2``).
+        create: If True, create the directories if they do not exist.
+    """
+    directories = {
+        "model_search": MODEL_SEARCH_ARTIFACTS_DIR / run_tag,
+        "evaluation": EVALUATION_ARTIFACTS_DIR / run_tag,
+        "deployment": DEPLOYMENT_ARTIFACTS_DIR / run_tag,
+    }
+    if create:
+        for path in directories.values():
+            path.mkdir(parents=True, exist_ok=True)
+    return directories

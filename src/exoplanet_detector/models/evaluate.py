@@ -19,6 +19,8 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import RandomizedSearchCV, StratifiedGroupKFold, TunedThresholdClassifierCV
 
+from exoplanet_detector.config import MIN_PRECISION_FLOOR, MIN_RECALL_FLOOR
+
 ThresholdModels = dict[str, dict[str, TunedThresholdClassifierCV]]
 
 RAW_TO_DISPLAY_PROFILE = {
@@ -31,8 +33,8 @@ DISPLAY_TO_RAW_PROFILE = {value: key for key, value in RAW_TO_DISPLAY_PROFILE.it
 
 def build_threshold_scoring_profiles(
     *,
-    min_precision: float = 0.5,
-    min_recall: float = 0.5,
+    min_precision: float = MIN_PRECISION_FLOOR,
+    min_recall: float = MIN_RECALL_FLOOR,
 ) -> dict[str, Any]:
     """Build threshold-objective scorers used by TunedThresholdClassifierCV."""
 
