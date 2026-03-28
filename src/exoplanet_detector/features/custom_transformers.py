@@ -6,7 +6,6 @@ from collections.abc import Iterable, Mapping
 
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.preprocessing import FunctionTransformer
 from sklearn.utils.validation import check_is_fitted
 
 from exoplanet_detector.features.feature_selection import PHYSICAL_INTERVALS
@@ -28,54 +27,85 @@ IqrFence = tuple[float, float]
 IqrFenceMap = Mapping[str, IqrFence]
 
 
-def make_column_dropper(columns: Iterable[str]) -> FunctionTransformer:
-    """Create a stateless column drop transformer."""
-    return FunctionTransformer(
-        func=drop_feature_columns,
-        kw_args={"columns": list(columns)},
-        validate=False,
-    )
-
-
-def make_right_skew_log_transformer(columns: Iterable[str]) -> FunctionTransformer:
-    """Create a stateless right-skew log1p transformer."""
-    return FunctionTransformer(
-        func=apply_right_skew_log1p,
-        kw_args={"columns": list(columns)},
-        validate=False,
-    )
-
-
 class ColumnDropper(BaseEstimator, TransformerMixin):
-    """Backward-compatible wrapper around a FunctionTransformer column dropper."""
+    """Drop selected columns from a pandas DataFrame."""
 
-    def __init__(self, columns: Iterable[str]):
+    def __init__(self, columns: Iterable[str], *, strict: bool = False):
         self.columns = list(columns)
+        self.strict = strict
 
     def fit(self, x: pd.DataFrame, y=None):  # noqa: D401, ANN001
-        self.transformer_ = make_column_dropper(self.columns)
-        self.transformer_.fit(x, y)
+        if not isinstance(x, pd.DataFrame):
+            raise TypeError("`ColumnDropper` expects a pandas DataFrame as input.")
+
+        missing_columns = [column for column in self.columns if column not in x.columns]
+        if self.strict and missing_columns:
+            missing_csv = ", ".join(missing_columns)
+            raise KeyError(f"Missing columns to drop: {missing_csv}")
+
+        self.columns_to_drop_ = [column for column in self.columns if column in x.columns]
+        self.missing_columns_ = missing_columns
         return self
 
     def transform(self, x: pd.DataFrame) -> pd.DataFrame:
-        check_is_fitted(self, attributes=["transformer_"])
-        return self.transformer_.transform(x)
+        check_is_fitted(self, attributes=["columns_to_drop_"])
+        if not isinstance(x, pd.DataFrame):
+            raise TypeError("`ColumnDropper` expects a pandas DataFrame as input.")
+        return drop_feature_columns(x, self.columns_to_drop_)
+
+
+class FinalFeatureSelector(BaseEstimator, TransformerMixin):
+    """Select only the final feature columns expected by the modeling pipeline."""
+
+    def __init__(self, columns: Iterable[str], *, strict: bool = False):
+        self.columns = list(columns)
+        self.strict = strict
+
+    def fit(self, x: pd.DataFrame, y=None):  # noqa: D401, ANN001
+        if not isinstance(x, pd.DataFrame):
+            raise TypeError("`FinalFeatureSelector` expects a pandas DataFrame as input.")
+
+        missing_columns = [column for column in self.columns if column not in x.columns]
+        if self.strict and missing_columns:
+            missing_csv = ", ".join(missing_columns)
+            raise KeyError(f"Missing required final feature columns: {missing_csv}")
+
+        self.selected_columns_ = [column for column in self.columns if column in x.columns]
+        self.missing_columns_ = missing_columns
+        return self
+
+    def transform(self, x: pd.DataFrame) -> pd.DataFrame:
+        check_is_fitted(self, attributes=["selected_columns_"])
+        if not isinstance(x, pd.DataFrame):
+            raise TypeError("`FinalFeatureSelector` expects a pandas DataFrame as input.")
+        return x.loc[:, self.selected_columns_].copy()
 
 
 class RightSkewLogTransformer(BaseEstimator, TransformerMixin):
-    """Backward-compatible wrapper around a FunctionTransformer log1p step."""
+    """Apply log1p to selected right-skewed columns."""
 
-    def __init__(self, columns: Iterable[str]):
+    def __init__(self, columns: Iterable[str], *, strict: bool = False):
         self.columns = list(columns)
+        self.strict = strict
 
     def fit(self, x: pd.DataFrame, y=None):  # noqa: D401, ANN001
-        self.transformer_ = make_right_skew_log_transformer(self.columns)
-        self.transformer_.fit(x, y)
+        if not isinstance(x, pd.DataFrame):
+            raise TypeError("`RightSkewLogTransformer` expects a pandas DataFrame as input.")
+
+        missing_columns = [column for column in self.columns if column not in x.columns]
+        if self.strict and missing_columns:
+            missing_csv = ", ".join(missing_columns)
+            raise KeyError(f"Missing right-skew columns: {missing_csv}")
+
+        self.columns_to_transform_ = [column for column in self.columns if column in x.columns]
+        self.missing_columns_ = missing_columns
         return self
 
     def transform(self, x: pd.DataFrame) -> pd.DataFrame:
-        check_is_fitted(self, attributes=["transformer_"])
-        return self.transformer_.transform(x)
+        check_is_fitted(self, attributes=["columns_to_transform_"])
+        if not isinstance(x, pd.DataFrame):
+            raise TypeError("`RightSkewLogTransformer` expects a pandas DataFrame as input.")
+        return apply_right_skew_log1p(x, self.columns_to_transform_)
 
 
 class LeftSkewReflectLogTransformer(BaseEstimator, TransformerMixin):

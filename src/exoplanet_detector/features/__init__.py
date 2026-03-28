@@ -29,14 +29,14 @@ from exoplanet_detector.features.outliers import (
     fit_iqr_fences,
     fit_iqr_fences_and_clip,
 )
+from exoplanet_detector.features.pipelines import build_preprocessing_pipeline
 from exoplanet_detector.features.custom_transformers import (
     ColumnDropper,
+    FinalFeatureSelector,
     IqrClipper,
     LeftSkewReflectLogTransformer,
     PhysicalOutlierScreener,
     RightSkewLogTransformer,
-    make_column_dropper,
-    make_right_skew_log_transformer,
 )
 
 __all__ = [
@@ -63,11 +63,11 @@ __all__ = [
     "apply_physical_outlier_screening",
     "fit_iqr_fences",
     "fit_iqr_fences_and_clip",
+    "build_preprocessing_pipeline",
     "ColumnDropper",
+    "FinalFeatureSelector",
     "RightSkewLogTransformer",
     "LeftSkewReflectLogTransformer",
     "PhysicalOutlierScreener",
     "IqrClipper",
-    "make_column_dropper",
-    "make_right_skew_log_transformer",
 ]
