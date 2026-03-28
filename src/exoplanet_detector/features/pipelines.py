@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 
+from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 from exoplanet_detector.features.custom_transformers import (
     FinalFeatureSelector,
@@ -36,6 +38,8 @@ def build_preprocessing_pipeline(
     eps: float = 1e-6,
     whisker_width: float = 1.5,
     iqr_fences: IqrFenceMap | None = None,
+    imputation_strategy: str = "median",
+    with_scaling: bool = True,
 ) -> Pipeline:
     """
     Build the baseline preprocessing pipeline used before model fitting.
@@ -46,6 +50,8 @@ def build_preprocessing_pipeline(
     - left-skew reflected log1p transform
     - physical-range screening
     - IQR clipping
+    - missing-value imputation
+    - feature scaling
     """
     selected_features = list(final_feature_columns)
 
@@ -76,5 +82,7 @@ def build_preprocessing_pipeline(
                     fences=iqr_fences,
                 ),
             ),
+            ("impute", SimpleImputer(strategy=imputation_strategy)),
+            ("scale", StandardScaler() if with_scaling else "passthrough"),
         ]
     )
