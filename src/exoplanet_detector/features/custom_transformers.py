@@ -58,7 +58,7 @@ class ColumnDropper(BaseEstimator, TransformerMixin):
 class FinalFeatureSelector(BaseEstimator, TransformerMixin):
     """Select only the final feature columns expected by the modeling pipeline."""
 
-    def __init__(self, columns: Iterable[str], *, strict: bool = False):
+    def __init__(self, columns: Iterable[str], *, strict: bool = True):
         self.columns = columns
         self.strict = strict
 
@@ -86,7 +86,7 @@ class FinalFeatureSelector(BaseEstimator, TransformerMixin):
 class RightSkewLogTransformer(BaseEstimator, TransformerMixin):
     """Apply log1p to selected right-skewed columns."""
 
-    def __init__(self, columns: Iterable[str], *, strict: bool = False):
+    def __init__(self, columns: Iterable[str], *, strict: bool = True):
         self.columns = columns
         self.strict = strict
 
@@ -108,6 +108,10 @@ class RightSkewLogTransformer(BaseEstimator, TransformerMixin):
         check_is_fitted(self, attributes=["columns_to_transform_"])
         if not isinstance(x, pd.DataFrame):
             raise TypeError("`RightSkewLogTransformer` expects a pandas DataFrame as input.")
+        missing_columns = [column for column in self.columns_to_transform_ if column not in x.columns]
+        if missing_columns:
+            missing_csv = ", ".join(missing_columns)
+            raise KeyError(f"Missing right-skew columns at transform time: {missing_csv}")
         return apply_right_skew_log1p(x, self.columns_to_transform_)
 
 
@@ -120,13 +124,26 @@ class LeftSkewReflectLogTransformer(BaseEstimator, TransformerMixin):
         *,
         reflection_max: Mapping[str, float] | None = None,
         eps: float = 1e-6,
+        strict: bool = True,
     ):
         self.columns = columns
         self.reflection_max = reflection_max
         self.eps = eps
+        self.strict = strict
 
     def fit(self, x: pd.DataFrame, y=None):  # noqa: D401, ANN001
-        self.columns_ = list(self.columns)
+        if not isinstance(x, pd.DataFrame):
+            raise TypeError("`LeftSkewReflectLogTransformer` expects a pandas DataFrame as input.")
+
+        requested_columns = list(self.columns)
+        missing_columns = [column for column in requested_columns if column not in x.columns]
+        if self.strict and missing_columns:
+            missing_csv = ", ".join(missing_columns)
+            raise KeyError(f"Missing left-skew columns: {missing_csv}")
+
+        self.columns_ = [column for column in requested_columns if column in x.columns]
+        self.missing_columns_ = missing_columns
+
         if self.reflection_max is None:
             self.reflection_max_ = fit_left_skew_reflection_max(
                 x,
@@ -147,6 +164,12 @@ class LeftSkewReflectLogTransformer(BaseEstimator, TransformerMixin):
 
     def transform(self, x: pd.DataFrame) -> pd.DataFrame:
         check_is_fitted(self, attributes=["columns_", "reflection_max_"])
+        if not isinstance(x, pd.DataFrame):
+            raise TypeError("`LeftSkewReflectLogTransformer` expects a pandas DataFrame as input.")
+        missing_columns = [column for column in self.columns_ if column not in x.columns]
+        if missing_columns:
+            missing_csv = ", ".join(missing_columns)
+            raise KeyError(f"Missing left-skew columns at transform time: {missing_csv}")
         transformed, _ = apply_left_skew_reflect_log1p(
             x,
             self.columns_,

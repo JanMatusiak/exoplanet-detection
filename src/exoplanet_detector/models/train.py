@@ -155,9 +155,15 @@ def run_model_searches(
     return search_results
 
 
-def build_search_summary(search_results: Mapping[str, RandomizedSearchCV]) -> pd.DataFrame:
+def build_search_summary(
+    search_results: Mapping[str, RandomizedSearchCV],
+    *,
+    refit_metric: str = "f2",
+) -> pd.DataFrame:
     """Build a per-model summary from fitted RandomizedSearchCV objects."""
     summary_rows: list[dict[str, Any]] = []
+    refit_score_column = f"best_score_refit_{refit_metric}"
+
     for model_name, search in search_results.items():
         best_idx = search.best_index_
         results = search.cv_results_
@@ -170,7 +176,7 @@ def build_search_summary(search_results: Mapping[str, RandomizedSearchCV]) -> pd
         summary_rows.append(
             {
                 "model": model_name,
-                "best_score_refit_f2": search.best_score_,
+                refit_score_column: search.best_score_,
                 "best_mean_test_recall": (
                     recall_vals[best_idx] if recall_vals is not None else float("nan")
                 ),
@@ -185,8 +191,7 @@ def build_search_summary(search_results: Mapping[str, RandomizedSearchCV]) -> pd
             }
         )
 
-    return (
-        pd.DataFrame(summary_rows)
-        .sort_values("best_score_refit_f2", ascending=False)
-        .reset_index(drop=True)
-    )
+    summary = pd.DataFrame(summary_rows)
+    if summary.empty:
+        return summary
+    return summary.sort_values(refit_score_column, ascending=False).reset_index(drop=True)

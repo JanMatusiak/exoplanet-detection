@@ -7,12 +7,6 @@ from collections.abc import Iterable, Mapping
 import numpy as np
 import pandas as pd
 
-from exoplanet_detector.features.feature_selection import (
-    ANALYSIS_DROP_COLUMNS,
-    LEFT_SKEWED_COLUMNS,
-    RIGHT_SKEWED_COLUMNS,
-)
-
 
 def feature_summary(df: pd.DataFrame) -> pd.DataFrame:
     """Replicate the notebook summary table for numeric feature inspection."""
@@ -112,29 +106,3 @@ def apply_left_skew_reflect_log1p(
         transformed[column] = np.log1p(reflected.clip(lower=0))
 
     return transformed, used_reflection_max
-
-
-def preprocess_feature_frame(
-    df: pd.DataFrame,
-    *,
-    drop_columns: Iterable[str] = ANALYSIS_DROP_COLUMNS,
-    right_skewed_columns: Iterable[str] = RIGHT_SKEWED_COLUMNS,
-    left_skewed_columns: Iterable[str] = LEFT_SKEWED_COLUMNS,
-    reflection_max: Mapping[str, float] | None = None,
-    eps: float = 1e-6,
-) -> tuple[pd.DataFrame, dict[str, float]]:
-    """
-    Apply the notebook-selected feature drops and skew transforms.
-
-    Returns:
-        (processed_dataframe, left_skew_reflection_max)
-    """
-    processed = drop_feature_columns(df, drop_columns)
-    processed = apply_right_skew_log1p(processed, right_skewed_columns)
-    processed, used_reflection_max = apply_left_skew_reflect_log1p(
-        processed,
-        left_skewed_columns,
-        reflection_max=reflection_max,
-        eps=eps,
-    )
-    return processed, used_reflection_max

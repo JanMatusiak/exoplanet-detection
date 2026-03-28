@@ -21,7 +21,6 @@ from exoplanet_detector.features.preprocessing import (
     drop_feature_columns,
     feature_summary,
     fit_left_skew_reflection_max,
-    preprocess_feature_frame,
 )
 from exoplanet_detector.features.outliers import (
     apply_iqr_clipping,
@@ -58,7 +57,6 @@ __all__ = [
     "drop_feature_columns",
     "feature_summary",
     "fit_left_skew_reflection_max",
-    "preprocess_feature_frame",
     "apply_iqr_clipping",
     "apply_physical_outlier_screening",
     "fit_iqr_fences",

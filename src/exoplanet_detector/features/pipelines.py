@@ -46,9 +46,9 @@ def build_preprocessing_pipeline(
 
     Includes:
     - final feature selection
+    - physical-range screening
     - right-skew log1p transform
     - left-skew reflected log1p transform
-    - physical-range screening
     - IQR clipping
     - missing-value imputation
     - feature scaling
@@ -59,20 +59,21 @@ def build_preprocessing_pipeline(
         steps=[
             (
                 "select_final_features",
-                FinalFeatureSelector(columns=selected_features),
+                FinalFeatureSelector(columns=selected_features, strict=True),
             ),
-            ("right_log", RightSkewLogTransformer(columns=right_skewed_columns)),
+            (
+                "physical_screen",
+                PhysicalOutlierScreener(intervals=physical_intervals),
+            ),
+            ("right_log", RightSkewLogTransformer(columns=right_skewed_columns, strict=True)),
             (
                 "left_log",
                 LeftSkewReflectLogTransformer(
                     columns=left_skewed_columns,
                     reflection_max=reflection_max,
                     eps=eps,
+                    strict=True,
                 ),
-            ),
-            (
-                "physical_screen",
-                PhysicalOutlierScreener(intervals=physical_intervals),
             ),
             (
                 "iqr_clip",
