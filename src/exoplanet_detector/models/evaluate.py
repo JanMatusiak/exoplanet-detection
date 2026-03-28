@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import joblib
+import numpy as np
 import pandas as pd
 from sklearn import set_config
 from sklearn.metrics import (
@@ -25,10 +26,47 @@ ThresholdModels = dict[str, dict[str, TunedThresholdClassifierCV]]
 
 RAW_TO_DISPLAY_PROFILE = {
     "best_f2": "f2",
+    "best_recall_constrained": "recall_constrained",
+    "best_precision_constrained": "precision_constrained",
+    # Backward-compatible aliases for older cached artifacts.
     "best_recall_pmin_0_5": "recall_constrained",
     "best_precision_rmin_0_5": "precision_constrained",
 }
-DISPLAY_TO_RAW_PROFILE = {value: key for key, value in RAW_TO_DISPLAY_PROFILE.items()}
+DISPLAY_TO_RAW_PROFILE = {
+    "f2": "best_f2",
+    "recall_constrained": "best_recall_constrained",
+    "precision_constrained": "best_precision_constrained",
+}
+LEGACY_RAW_PROFILE_BY_DISPLAY = {
+    "recall_constrained": "best_recall_pmin_0_5",
+    "precision_constrained": "best_precision_rmin_0_5",
+}
+
+
+def recall_with_precision_floor_score(
+    y_true,
+    y_pred,
+    *,
+    min_precision: float = MIN_PRECISION_FLOOR,
+) -> float:
+    """Return recall only when precision meets the minimum floor."""
+    precision = precision_score(y_true, y_pred, zero_division=0)
+    if precision < min_precision:
+        return 0.0
+    return float(recall_score(y_true, y_pred, zero_division=0))
+
+
+def precision_with_recall_floor_score(
+    y_true,
+    y_pred,
+    *,
+    min_recall: float = MIN_RECALL_FLOOR,
+) -> float:
+    """Return precision only when recall meets the minimum floor."""
+    recall = recall_score(y_true, y_pred, zero_division=0)
+    if recall < min_recall:
+        return 0.0
+    return float(precision_score(y_true, y_pred, zero_division=0))
 
 
 def build_threshold_scoring_profiles(
@@ -38,23 +76,29 @@ def build_threshold_scoring_profiles(
 ) -> dict[str, Any]:
     """Build threshold-objective scorers used by TunedThresholdClassifierCV."""
 
-    def recall_with_precision_floor(y_true, y_pred):
-        precision = precision_score(y_true, y_pred, zero_division=0)
-        if precision < min_precision:
-            return 0.0
-        return recall_score(y_true, y_pred, zero_division=0)
-
-    def precision_with_recall_floor(y_true, y_pred):
-        recall = recall_score(y_true, y_pred, zero_division=0)
-        if recall < min_recall:
-            return 0.0
-        return precision_score(y_true, y_pred, zero_division=0)
-
     return {
         "best_f2": make_scorer(fbeta_score, beta=2, zero_division=0),
-        "best_recall_pmin_0_5": make_scorer(recall_with_precision_floor),
-        "best_precision_rmin_0_5": make_scorer(precision_with_recall_floor),
+        "best_recall_constrained": make_scorer(
+            recall_with_precision_floor_score,
+            min_precision=min_precision,
+        ),
+        "best_precision_constrained": make_scorer(
+            precision_with_recall_floor_score,
+            min_recall=min_recall,
+        ),
     }
+
+
+def _sanitize_tuned_model_for_pickle(tuned_model: TunedThresholdClassifierCV) -> TunedThresholdClassifierCV:
+    """Remove nonessential callable state that can break pickle serialization."""
+    # Keep only a simple module-level scorer so pickle is stable even if the
+    # model was tuned with notebook-local scorer callables.
+    safe_scorer = make_scorer(recall_score, zero_division=0)
+    tuned_model.scoring = safe_scorer
+    # sklearn uses this in `predict()` to resolve the positive class label.
+    if hasattr(tuned_model, "_curve_scorer"):
+        tuned_model._curve_scorer = safe_scorer
+    return tuned_model
 
 
 def fit_or_load_threshold_models(
@@ -86,12 +130,14 @@ def fit_or_load_threshold_models(
     if tuned_models_path.exists() and threshold_summary_path.exists() and not force_retune:
         try:
             loaded_models = joblib.load(tuned_models_path)
-            threshold_summary = pd.read_csv(threshold_summary_path)
-            return loaded_models, threshold_summary
-        except Exception:
-            # Cached wrappers may become unpicklable after scorer/function refactors.
-            # In that case, fall back to refitting with current code and overwrite cache.
-            pass
+        except Exception as exc:
+            raise RuntimeError(
+                "Failed to load cached threshold models from "
+                f"{tuned_models_path}. "
+                "Delete the cache or rerun once with force_retune=True."
+            ) from exc
+        threshold_summary = pd.read_csv(threshold_summary_path)
+        return loaded_models, threshold_summary
 
     set_config(enable_metadata_routing=True)
     cv = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=cv_random_state)
@@ -118,7 +164,7 @@ def fit_or_load_threshold_models(
             )
             tuned.fit(x_train, y_train, groups=groups)
 
-            tuned_threshold_models[model_name][profile_name] = tuned
+            tuned_threshold_models[model_name][profile_name] = _sanitize_tuned_model_for_pickle(tuned)
             summary_rows.append(
                 {
                     "model": model_name,
@@ -141,8 +187,39 @@ def fit_or_load_threshold_models(
 
 def _get_positive_scores(estimator: Any, x: pd.DataFrame) -> Any:
     if hasattr(estimator, "predict_proba"):
-        return estimator.predict_proba(x)[:, 1]
-    return estimator.decision_function(x)
+        proba = estimator.predict_proba(x)
+        if hasattr(estimator, "classes_") and 1 in estimator.classes_:
+            pos_idx = int(np.where(estimator.classes_ == 1)[0][0])
+        else:
+            pos_idx = 1
+        return proba[:, pos_idx]
+    scores = estimator.decision_function(x)
+    return scores
+
+
+def _predict_with_threshold(tuned_model: TunedThresholdClassifierCV, x: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    """Predict labels using estimator scores and the tuned threshold.
+
+    This avoids relying on `TunedThresholdClassifierCV.predict()`, which can fail
+    for old cached artifacts where scorer internals are missing.
+    """
+    base_estimator = tuned_model.estimator_
+    y_score = _get_positive_scores(base_estimator, x)
+    threshold = float(tuned_model.best_threshold_)
+
+    classes = np.asarray(tuned_model.classes_)
+    if classes.shape[0] != 2:
+        raise ValueError("Threshold evaluation expects binary classification models.")
+
+    if 1 in classes:
+        pos_label = 1
+        neg_label = classes[0] if classes[1] == 1 else classes[1]
+    else:
+        pos_label = classes[-1]
+        neg_label = classes[0]
+
+    y_pred = np.where(y_score >= threshold, pos_label, neg_label)
+    return y_pred, y_score
 
 
 def evaluate_or_load_threshold_models(
@@ -181,8 +258,7 @@ def evaluate_or_load_threshold_models(
             threshold = float(tuned_model.best_threshold_)
 
             for dataset_name, x_eval, y_eval in datasets:
-                y_pred = tuned_model.predict(x_eval)
-                y_score = _get_positive_scores(tuned_model, x_eval)
+                y_pred, y_score = _predict_with_threshold(tuned_model, x_eval)
                 tn, fp, fn, tp = confusion_matrix(y_eval, y_pred, labels=[0, 1]).ravel()
                 try:
                     pr_auc = float(average_precision_score(y_eval, y_score))
@@ -255,7 +331,18 @@ def save_deployment_bundle(
         model_name = item["model"]
         profile_name = item["profile"]
         raw_profile = profile_to_raw[profile_name]
-        tuned_model = tuned_threshold_models[model_name][raw_profile]
+        model_profiles = tuned_threshold_models[model_name]
+        if raw_profile in model_profiles:
+            tuned_model = model_profiles[raw_profile]
+        else:
+            legacy_profile = LEGACY_RAW_PROFILE_BY_DISPLAY.get(profile_name)
+            if legacy_profile is None or legacy_profile not in model_profiles:
+                available = ", ".join(sorted(model_profiles.keys()))
+                raise KeyError(
+                    f"Profile '{profile_name}' not found for model '{model_name}'. "
+                    f"Available raw profiles: {available}"
+                )
+            tuned_model = model_profiles[legacy_profile]
         threshold = float(tuned_model.best_threshold_)
 
         deploy_bundle[deploy_id] = {
