@@ -31,19 +31,20 @@ class ColumnDropper(BaseEstimator, TransformerMixin):
     """Drop selected columns from a pandas DataFrame."""
 
     def __init__(self, columns: Iterable[str], *, strict: bool = False):
-        self.columns = list(columns)
+        self.columns = columns
         self.strict = strict
 
     def fit(self, x: pd.DataFrame, y=None):  # noqa: D401, ANN001
         if not isinstance(x, pd.DataFrame):
             raise TypeError("`ColumnDropper` expects a pandas DataFrame as input.")
 
-        missing_columns = [column for column in self.columns if column not in x.columns]
+        columns = list(self.columns)
+        missing_columns = [column for column in columns if column not in x.columns]
         if self.strict and missing_columns:
             missing_csv = ", ".join(missing_columns)
             raise KeyError(f"Missing columns to drop: {missing_csv}")
 
-        self.columns_to_drop_ = [column for column in self.columns if column in x.columns]
+        self.columns_to_drop_ = [column for column in columns if column in x.columns]
         self.missing_columns_ = missing_columns
         return self
 
@@ -58,19 +59,20 @@ class FinalFeatureSelector(BaseEstimator, TransformerMixin):
     """Select only the final feature columns expected by the modeling pipeline."""
 
     def __init__(self, columns: Iterable[str], *, strict: bool = False):
-        self.columns = list(columns)
+        self.columns = columns
         self.strict = strict
 
     def fit(self, x: pd.DataFrame, y=None):  # noqa: D401, ANN001
         if not isinstance(x, pd.DataFrame):
             raise TypeError("`FinalFeatureSelector` expects a pandas DataFrame as input.")
 
-        missing_columns = [column for column in self.columns if column not in x.columns]
+        columns = list(self.columns)
+        missing_columns = [column for column in columns if column not in x.columns]
         if self.strict and missing_columns:
             missing_csv = ", ".join(missing_columns)
             raise KeyError(f"Missing required final feature columns: {missing_csv}")
 
-        self.selected_columns_ = [column for column in self.columns if column in x.columns]
+        self.selected_columns_ = [column for column in columns if column in x.columns]
         self.missing_columns_ = missing_columns
         return self
 
@@ -85,19 +87,20 @@ class RightSkewLogTransformer(BaseEstimator, TransformerMixin):
     """Apply log1p to selected right-skewed columns."""
 
     def __init__(self, columns: Iterable[str], *, strict: bool = False):
-        self.columns = list(columns)
+        self.columns = columns
         self.strict = strict
 
     def fit(self, x: pd.DataFrame, y=None):  # noqa: D401, ANN001
         if not isinstance(x, pd.DataFrame):
             raise TypeError("`RightSkewLogTransformer` expects a pandas DataFrame as input.")
 
-        missing_columns = [column for column in self.columns if column not in x.columns]
+        columns = list(self.columns)
+        missing_columns = [column for column in columns if column not in x.columns]
         if self.strict and missing_columns:
             missing_csv = ", ".join(missing_columns)
             raise KeyError(f"Missing right-skew columns: {missing_csv}")
 
-        self.columns_to_transform_ = [column for column in self.columns if column in x.columns]
+        self.columns_to_transform_ = [column for column in columns if column in x.columns]
         self.missing_columns_ = missing_columns
         return self
 
@@ -118,20 +121,21 @@ class LeftSkewReflectLogTransformer(BaseEstimator, TransformerMixin):
         reflection_max: Mapping[str, float] | None = None,
         eps: float = 1e-6,
     ):
-        self.columns = list(columns)
-        self.reflection_max = dict(reflection_max) if reflection_max is not None else None
+        self.columns = columns
+        self.reflection_max = reflection_max
         self.eps = eps
 
     def fit(self, x: pd.DataFrame, y=None):  # noqa: D401, ANN001
+        self.columns_ = list(self.columns)
         if self.reflection_max is None:
             self.reflection_max_ = fit_left_skew_reflection_max(
                 x,
-                self.columns,
+                self.columns_,
                 eps=self.eps,
             )
         else:
             self.reflection_max_ = {key: float(value) for key, value in self.reflection_max.items()}
-            missing_columns = [column for column in self.columns if column not in self.reflection_max_]
+            missing_columns = [column for column in self.columns_ if column not in self.reflection_max_]
             if missing_columns:
                 fitted_missing = fit_left_skew_reflection_max(
                     x,
@@ -142,10 +146,10 @@ class LeftSkewReflectLogTransformer(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, x: pd.DataFrame) -> pd.DataFrame:
-        check_is_fitted(self, attributes=["reflection_max_"])
+        check_is_fitted(self, attributes=["columns_", "reflection_max_"])
         transformed, _ = apply_left_skew_reflect_log1p(
             x,
-            self.columns,
+            self.columns_,
             reflection_max=self.reflection_max_,
             eps=self.eps,
         )
@@ -161,16 +165,18 @@ class PhysicalOutlierScreener(BaseEstimator, TransformerMixin):
         intervals: PhysicalIntervalMap = PHYSICAL_INTERVALS,
         replace_with: float = float("nan"),
     ):
-        self.intervals = dict(intervals)
+        self.intervals = intervals
         self.replace_with = replace_with
 
     def fit(self, x: pd.DataFrame, y=None):  # noqa: D401, ANN001
+        self.intervals_ = dict(self.intervals)
         return self
 
     def transform(self, x: pd.DataFrame) -> pd.DataFrame:
+        check_is_fitted(self, attributes=["intervals_"])
         screened, summary = apply_physical_outlier_screening(
             x,
-            intervals=self.intervals,
+            intervals=self.intervals_,
             replace_with=self.replace_with,
         )
         self.last_summary_ = summary
@@ -187,11 +193,12 @@ class IqrClipper(BaseEstimator, TransformerMixin):
         whisker_width: float = 1.5,
         fences: IqrFenceMap | None = None,
     ):
-        self.columns = list(columns) if columns is not None else None
+        self.columns = columns
         self.whisker_width = whisker_width
-        self.fences = dict(fences) if fences is not None else None
+        self.fences = fences
 
     def fit(self, x: pd.DataFrame, y=None):  # noqa: D401, ANN001
+        selected_columns = list(self.columns) if self.columns is not None else None
         if self.fences is not None:
             self.fences_ = {
                 feature: (float(lower), float(upper))
@@ -212,7 +219,7 @@ class IqrClipper(BaseEstimator, TransformerMixin):
         else:
             self.fences_, self.fit_summary_ = fit_iqr_fences(
                 x,
-                columns=self.columns,
+                columns=selected_columns,
                 whisker_width=self.whisker_width,
             )
         return self
