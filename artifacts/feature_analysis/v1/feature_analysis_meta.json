@@ -1,6 +1,6 @@
 {
   "run_tag": "v1",
-  "created_at_utc": "2026-03-29T19:47:13.815999+00:00",
+  "created_at_utc": "2026-03-30T22:04:33.205351+00:00",
   "scoring": "f2",
   "n_repeats": 20,
   "random_state": 42,
@@ -11,5 +11,6 @@
     "K2P",
     "KOI_test_plus_K2P"
   ],
+  "deployment_signature": "d52ee26ecf8eacdaf8e1f3a69d4013eb418c6aaffabbd98a1e1d915ce8b6c639",
   "rows": 99
 }
