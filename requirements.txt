@@ -27,5 +27,6 @@ threadpoolctl==3.6.0
 typing_extensions==4.15.0
 tzdata==2025.3
 wrapt==2.0.1
+shap==0.47.2
 jupyterlab
 ipykernel

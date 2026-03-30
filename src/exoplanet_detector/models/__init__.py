@@ -21,6 +21,7 @@ from exoplanet_detector.models.feature_analysis import (
     compute_or_load_permutation_importance,
     get_feature_analysis_paths,
     load_deployed_models,
+    predict_and_explain_single_row,
 )
 
 __all__ = [
@@ -36,6 +37,7 @@ __all__ = [
     "build_evaluation_sets",
     "compute_or_load_permutation_importance",
     "build_feature_importance_matrix",
+    "predict_and_explain_single_row",
     "run_model_searches",
     "save_deployment_bundle",
     "RAW_TO_DISPLAY_PROFILE",

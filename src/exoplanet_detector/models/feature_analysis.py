@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import joblib
+import numpy as np
 import pandas as pd
 from sklearn.inspection import permutation_importance
 
@@ -276,10 +277,297 @@ def build_feature_importance_matrix(
     )
 
 
+def _to_single_row_dataframe(
+    row: pd.Series | pd.DataFrame | Mapping[str, Any],
+    *,
+    feature_columns: Sequence[str],
+) -> pd.DataFrame:
+    if isinstance(row, pd.DataFrame):
+        if row.shape[0] != 1:
+            raise ValueError(f"`row` dataframe must contain exactly one row, got {row.shape[0]}.")
+        row_df = row.copy()
+    elif isinstance(row, pd.Series):
+        row_df = pd.DataFrame([row.to_dict()])
+    else:
+        row_df = pd.DataFrame([dict(row)])
+
+    selected_columns = list(feature_columns)
+    missing_columns = [column for column in selected_columns if column not in row_df.columns]
+    if missing_columns:
+        missing_csv = ", ".join(missing_columns)
+        raise KeyError(f"Missing required feature columns in `row`: {missing_csv}")
+
+    return row_df.loc[:, selected_columns].copy()
+
+
+def _resolve_positive_label(classes: Sequence[Any]) -> Any:
+    class_array = np.asarray(classes)
+    if class_array.shape[0] != 2:
+        raise ValueError("Binary classification is required for threshold-based prediction.")
+    return 1 if 1 in class_array else class_array[-1]
+
+
+def _resolve_negative_label(classes: Sequence[Any], positive_label: Any) -> Any:
+    class_array = np.asarray(classes)
+    negatives = [label for label in class_array if label != positive_label]
+    if not negatives:
+        raise ValueError("Could not determine negative class label.")
+    return negatives[0]
+
+
+def _positive_class_index(classes: Sequence[Any], positive_label: Any) -> int:
+    class_array = np.asarray(classes)
+    matches = np.where(class_array == positive_label)[0]
+    if matches.size == 0:
+        raise ValueError(f"Positive label {positive_label!r} not found in classes: {list(class_array)!r}")
+    return int(matches[0])
+
+
+def _sample_background_data(
+    background_data: pd.DataFrame,
+    *,
+    feature_columns: Sequence[str],
+    max_background_rows: int,
+    random_state: int,
+) -> pd.DataFrame:
+    selected_columns = list(feature_columns)
+    missing_columns = [column for column in selected_columns if column not in background_data.columns]
+    if missing_columns:
+        missing_csv = ", ".join(missing_columns)
+        raise KeyError(f"Missing required feature columns in `background_data`: {missing_csv}")
+
+    sampled = background_data.loc[:, selected_columns].copy()
+    if sampled.shape[0] > max_background_rows:
+        sampled = sampled.sample(n=max_background_rows, random_state=random_state)
+    return sampled.reset_index(drop=True)
+
+
+def _extract_shap_values_for_positive_class(raw_shap_values: Any, positive_class_index: int) -> np.ndarray:
+    if isinstance(raw_shap_values, list):
+        values = np.asarray(raw_shap_values[positive_class_index], dtype=float)
+    else:
+        values = np.asarray(raw_shap_values, dtype=float)
+        if values.ndim == 3:
+            if values.shape[-1] > positive_class_index:
+                values = values[:, :, positive_class_index]
+            elif values.shape[0] > positive_class_index:
+                values = values[positive_class_index, :, :]
+            else:
+                raise ValueError(
+                    "Unexpected SHAP value shape for class extraction: "
+                    f"{values.shape!r} (positive_class_index={positive_class_index})."
+                )
+    if values.ndim == 1:
+        values = values.reshape(1, -1)
+    if values.ndim != 2:
+        raise ValueError(f"Expected SHAP values as 2D array, got shape {values.shape!r}.")
+    return values
+
+
+def _extract_expected_value_for_positive_class(expected_value: Any, positive_class_index: int) -> float:
+    if isinstance(expected_value, (list, tuple, np.ndarray)):
+        expected_array = np.asarray(expected_value, dtype=float).reshape(-1)
+        if expected_array.size == 1:
+            return float(expected_array[0])
+        if expected_array.size > positive_class_index:
+            return float(expected_array[positive_class_index])
+    return float(expected_value)
+
+
+def _resolve_estimator_components(estimator: Any) -> tuple[Any | None, Any]:
+    if hasattr(estimator, "named_steps") and "clf" in estimator.named_steps:
+        preprocess = estimator.named_steps.get("preprocess")
+        classifier = estimator.named_steps["clf"]
+        return preprocess, classifier
+    return None, estimator
+
+
+def _resolve_explainer_kind(classifier: Any) -> str:
+    classifier_name = classifier.__class__.__name__.lower()
+    tree_tokens = ("tree", "forest", "boosting", "xgb", "lgbm", "catboost")
+    linear_tokens = ("logisticregression", "linear", "ridgeclassifier", "sgdclassifier")
+    if any(token in classifier_name for token in tree_tokens):
+        return "tree"
+    if any(token in classifier_name for token in linear_tokens):
+        return "linear"
+    return "kernel"
+
+
+def predict_and_explain_single_row(
+    deployed_models: Mapping[str, Mapping[str, Any]],
+    *,
+    deploy_id: str,
+    row: pd.Series | pd.DataFrame | Mapping[str, Any],
+    background_data: pd.DataFrame,
+    feature_columns: Sequence[str] = FINAL_FEATURE_COLUMNS,
+    max_background_rows: int = 200,
+    random_state: int = 42,
+    kernel_nsamples: int = 200,
+    make_waterfall_plot: bool = True,
+    waterfall_max_display: int = 12,
+    show_waterfall: bool = False,
+    explainer_cache: dict[tuple[str, str], Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Predict and compute SHAP explanation for a single row from a deployed model.
+
+    Returns prediction metadata, SHAP values, and optional waterfall figure objects.
+    """
+    try:
+        import shap
+    except ImportError as exc:
+        raise ImportError(
+            "SHAP is required for prediction explanations. Install it with: `pip install shap`."
+        ) from exc
+
+    if deploy_id not in deployed_models:
+        available = ", ".join(sorted(deployed_models.keys()))
+        raise KeyError(f"`deploy_id` {deploy_id!r} not found. Available: {available}")
+
+    spec = deployed_models[deploy_id]
+    tuned_model = spec["model"]
+    base_estimator = tuned_model.estimator_
+
+    selected_columns = list(feature_columns)
+    row_df = _to_single_row_dataframe(row, feature_columns=selected_columns)
+    background_df = _sample_background_data(
+        background_data,
+        feature_columns=selected_columns,
+        max_background_rows=max_background_rows,
+        random_state=random_state,
+    )
+
+    threshold = float(spec.get("threshold", getattr(tuned_model, "best_threshold_", 0.5)))
+    tuned_classes = np.asarray(tuned_model.classes_)
+    positive_label = _resolve_positive_label(tuned_classes)
+    negative_label = _resolve_negative_label(tuned_classes, positive_label)
+
+    if not hasattr(base_estimator, "predict_proba"):
+        raise ValueError("SHAP prediction explanation currently expects estimators with `predict_proba`.")
+
+    if not hasattr(base_estimator, "classes_"):
+        raise ValueError("Estimator is missing `classes_`; cannot resolve positive-class score index.")
+    estimator_positive_class_index = _positive_class_index(base_estimator.classes_, positive_label)
+    estimator_negative_class_index = _positive_class_index(base_estimator.classes_, negative_label)
+    score_matrix = base_estimator.predict_proba(row_df)
+    if score_matrix.ndim != 2 or score_matrix.shape[0] != 1:
+        raise ValueError(f"Unexpected predict_proba output shape: {score_matrix.shape!r}")
+    score = float(score_matrix[0, estimator_positive_class_index])
+    probability_positive = score
+    probability_negative = float(score_matrix[0, estimator_negative_class_index])
+    prediction = positive_label if score >= threshold else negative_label
+
+    preprocess, classifier = _resolve_estimator_components(base_estimator)
+    if preprocess is not None:
+        x_row_model = preprocess.transform(row_df)
+        x_background_model = preprocess.transform(background_df)
+    else:
+        x_row_model = row_df.to_numpy()
+        x_background_model = background_df.to_numpy()
+
+    if not hasattr(classifier, "predict_proba"):
+        raise ValueError("SHAP prediction explanation currently expects classifiers with `predict_proba`.")
+    classifier_classes = np.asarray(classifier.classes_)
+    classifier_positive_class_index = _positive_class_index(classifier_classes, positive_label)
+
+    explainer_kind = _resolve_explainer_kind(classifier)
+    cache_key = (deploy_id, explainer_kind)
+    explainer = explainer_cache.get(cache_key) if explainer_cache is not None else None
+
+    if explainer is None:
+        try:
+            if explainer_kind == "tree":
+                explainer = shap.TreeExplainer(
+                    classifier,
+                    data=x_background_model,
+                    model_output="probability",
+                )
+            elif explainer_kind == "linear":
+                explainer = shap.LinearExplainer(classifier, x_background_model)
+            else:
+                predict_positive = (
+                    lambda matrix: classifier.predict_proba(matrix)[:, classifier_positive_class_index]
+                )
+                explainer = shap.KernelExplainer(predict_positive, x_background_model)
+        except Exception:
+            explainer_kind = "kernel"
+            predict_positive = (
+                lambda matrix: classifier.predict_proba(matrix)[:, classifier_positive_class_index]
+            )
+            explainer = shap.KernelExplainer(predict_positive, x_background_model)
+        if explainer_cache is not None:
+            explainer_cache[cache_key] = explainer
+
+    if explainer_kind == "kernel":
+        raw_shap_values = explainer.shap_values(x_row_model, nsamples=kernel_nsamples)
+    else:
+        raw_shap_values = explainer.shap_values(x_row_model)
+
+    shap_values_2d = _extract_shap_values_for_positive_class(
+        raw_shap_values,
+        classifier_positive_class_index,
+    )
+    base_value = _extract_expected_value_for_positive_class(
+        explainer.expected_value,
+        classifier_positive_class_index,
+    )
+    shap_values_1d = shap_values_2d[0]
+
+    row_display_values = row_df.iloc[0].to_numpy(dtype=float, copy=False)
+    explanation = shap.Explanation(
+        values=shap_values_1d,
+        base_values=base_value,
+        data=row_display_values,
+        feature_names=selected_columns,
+    )
+    shap_series = (
+        pd.Series(shap_values_1d, index=selected_columns, name="shap_value")
+        .sort_values(key=lambda series: series.abs(), ascending=False)
+    )
+
+    waterfall_figure = None
+    waterfall_axis = None
+    if make_waterfall_plot:
+        import matplotlib.pyplot as plt
+
+        plt.figure(figsize=(9, 5))
+        waterfall_axis = shap.plots.waterfall(
+            explanation,
+            max_display=waterfall_max_display,
+            show=show_waterfall,
+        )
+        waterfall_figure = plt.gcf()
+
+    return {
+        "deploy_id": deploy_id,
+        "model_name": spec["model_name"],
+        "profile": spec["profile"],
+        "threshold": threshold,
+        "score": score,
+        "probability_positive": probability_positive,
+        "probability_negative": probability_negative,
+        "probabilities_by_class": {
+            str(negative_label): probability_negative,
+            str(positive_label): probability_positive,
+        },
+        "prediction": prediction,
+        "positive_label": positive_label,
+        "negative_label": negative_label,
+        "explainer_kind": explainer_kind,
+        "feature_values": row_df.iloc[0].copy(),
+        "shap_values": shap_series,
+        "base_value": base_value,
+        "explanation": explanation,
+        "waterfall_figure": waterfall_figure,
+        "waterfall_axis": waterfall_axis,
+    }
+
+
 __all__ = [
     "build_evaluation_sets",
     "build_feature_importance_matrix",
     "compute_or_load_permutation_importance",
     "get_feature_analysis_paths",
     "load_deployed_models",
+    "predict_and_explain_single_row",
 ]
