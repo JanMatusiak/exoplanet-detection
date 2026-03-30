@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
@@ -118,6 +119,7 @@ def _cache_config_matches(
     random_state: int,
     n_jobs: int,
     dataset_names: Sequence[str],
+    deployment_signature: str,
 ) -> bool:
     return (
         feature_analysis_meta.get("run_tag") == run_tag
@@ -126,7 +128,54 @@ def _cache_config_matches(
         and feature_analysis_meta.get("random_state") == random_state
         and feature_analysis_meta.get("n_jobs") == n_jobs
         and set(feature_analysis_meta.get("datasets", [])) == set(dataset_names)
+        and feature_analysis_meta.get("deployment_signature") == deployment_signature
     )
+
+
+def _normalize_param_value(value: Any) -> Any:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, (list, tuple)):
+        return [_normalize_param_value(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            str(key): _normalize_param_value(item)
+            for key, item in sorted(value.items(), key=lambda kv: str(kv[0]))
+        }
+    return repr(value)
+
+
+def _build_deployment_signature(deployed_models: Mapping[str, Mapping[str, Any]]) -> str:
+    signature_rows: list[dict[str, Any]] = []
+    for deploy_id, spec in sorted(deployed_models.items(), key=lambda item: item[0]):
+        model = spec["model"]
+        estimator = getattr(model, "estimator_", model)
+
+        estimator_params: dict[str, Any] = {}
+        if hasattr(estimator, "get_params"):
+            try:
+                raw_params = estimator.get_params(deep=True)
+            except Exception:
+                raw_params = {}
+            estimator_params = {
+                str(key): _normalize_param_value(value)
+                for key, value in sorted(raw_params.items(), key=lambda kv: str(kv[0]))
+            }
+
+        signature_rows.append(
+            {
+                "deploy_id": deploy_id,
+                "model_name": spec.get("model_name"),
+                "profile": spec.get("profile"),
+                "threshold": float(spec.get("threshold", float("nan"))),
+                "model_class": type(model).__name__,
+                "estimator_class": type(estimator).__name__,
+                "estimator_params": estimator_params,
+            }
+        )
+
+    payload = json.dumps(signature_rows, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _compute_permutation_importance(
@@ -200,6 +249,7 @@ def compute_or_load_permutation_importance(
     """Compute permutation importance or load cached results."""
     importance_path = Path(permutation_importance_path)
     meta_path = Path(feature_analysis_meta_path)
+    deployment_signature = _build_deployment_signature(deployed_models)
 
     if importance_path.exists() and meta_path.exists() and not force_recompute:
         feature_analysis_meta = json.loads(meta_path.read_text())
@@ -211,6 +261,7 @@ def compute_or_load_permutation_importance(
             random_state=random_state,
             n_jobs=n_jobs,
             dataset_names=list(evaluation_sets.keys()),
+            deployment_signature=deployment_signature,
         )
         if matches:
             return pd.read_csv(importance_path), dict(feature_analysis_meta), True
@@ -237,6 +288,7 @@ def compute_or_load_permutation_importance(
         "n_jobs": n_jobs,
         "n_deployed_models": len(deployed_models),
         "datasets": list(evaluation_sets.keys()),
+        "deployment_signature": deployment_signature,
         "rows": int(permutation_importance_df.shape[0]),
     }
     meta_path.write_text(json.dumps(feature_analysis_meta, indent=2))
