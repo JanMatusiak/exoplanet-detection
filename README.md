@@ -1,121 +1,118 @@
 # exoplanet-detection
 
-## Feature selection
-### Canonical column definitions
+## 1. Project Summary
+This project is an end-to-end binary classification workflow for exoplanet candidate detection using tabular astronomy features from KOI (Kepler Objects of Interest) and K2P (K2 Planets & Candidates).  
+The target is `label` where `1` means planet-like and `0` means non-planet-like.
 
-This project harmonizes KOI (Kepler Objects of Interest) and K2P (K2 Planets & Candidates) into a unified schema. Below are the final (canonical) columns used after renaming, along with their meaning and key dependencies/redundancies.
-#### group_id
+## 2. Goals
+- Build a full ML workflow from raw data preparation to deployment-ready artifacts.
+- Compare multiple model families with consistent preprocessing.
+- Tune decision thresholds for different optimization profiles (`f2`, recall-priority, precision-priority).
+- Provide explainability and visual diagnostics for deployed models.
 
-**Meaning:** Identifier used for grouping/splitting to prevent leakage.
+## 3. Data
+- Raw files:
+  - `data/raw/KOI_full.csv`
+  - `data/raw/K2P_full.csv`
+- Processed files:
+  - `data/processed/KOI_train_set.csv`
+  - `data/processed/KOI_test_set.csv`
+  - `data/processed/K2P_set.csv`
+- Label mapping:
+  - `CONFIRMED -> 1`
+  - `FALSE POSITIVE -> 0`
+  - `REFUTED -> 0`
+  - `CANDIDATE` is excluded from supervised training.
+- Group-aware split:
+  - `group_id` is used in `StratifiedGroupKFold` to reduce host-level leakage risk.
 
-* KOI: `kepid` (host star ID; multiple candidates can share a group)
-* K2P: `pl_name` (planet name; typically unique per object)
+## 4. Pipeline Overview (Notebook Map)
+- `notebooks/01_data_preparation.ipynb`
+  - Harmonization, renaming, label mapping, KOI train/test split.
+- `notebooks/02_feature_selection_and_preprocessing.ipynb`
+  - Feature screening, transformations, preprocessing decisions.
+- `notebooks/03_train_and_tune_models.ipynb`
+  - Randomized hyperparameter search across 5 model families.
+- `notebooks/04_evaluate_models.ipynb`
+  - Threshold tuning, KOI/K2P evaluation, deployment bundle export.
+- `notebooks/05_feature_analysis.ipynb`
+  - Permutation importance matrix and SHAP-based single-row explanation.
+- `notebooks/06_visualisations.ipynb`
+  - Confusion/ROC/PR plot generation and visualization manifest.
 
-#### label
+## 5. Modeling Approach
+- Candidate models:
+  - Logistic Regression (`logreg`)
+  - SVC with RBF kernel (`svc_rbf`)
+  - KNN (`knn`)
+  - Random Forest (`rf`)
+  - HistGradientBoosting (`hgb`)
+- Cross-validation:
+  - `StratifiedGroupKFold` on KOI train set.
+- Objective during model search:
+  - Multi-metric scoring with refit on `f2`.
+- Threshold tuning profiles (`TunedThresholdClassifierCV`):
+  - `f2`
+  - `recall_constrained` (requires minimum precision floor)
+  - `precision_constrained` (requires minimum recall floor)
 
-**Meaning:** Target derived from archive disposition (planet-like vs not).
+## 6. Current Results (v1)
+Deployed profiles from `artifacts/deployment/v1/deploy_manifest.csv`:
 
----
+| deploy_id | model | profile | threshold | KOI F2 | KOI recall | KOI precision | K2P F2 | K2P recall | K2P precision |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|
+| `deploy_f2` | `knn` | `f2` | 0.3636 | 0.9167 | 0.9581 | 0.7816 | 0.8857 | 0.9086 | 0.8046 |
+| `deploy_recall` | `rf` | `recall_constrained` | 0.0290 | 0.8488 | 0.9982 | 0.5310 | 0.9217 | 0.9983 | 0.7052 |
+| `deploy_precision` | `hgb` | `precision_constrained` | 0.8854 | 0.5658 | 0.5118 | 0.9791 | 0.2881 | 0.2448 | 0.9861 |
 
-#### orbital_period_days
+Interpretation:
+- `deploy_f2` provides the best overall balance.
+- `deploy_recall` maximizes recall with expected precision tradeoff.
+- `deploy_precision` maximizes precision with expected recall tradeoff.
 
-**Meaning:** Orbital period in days (time between consecutive transits).
-**Dependencies/redundancy:** Related to `semi_major_axis_au` and `stellar_mass_msun` via Kepler’s 3rd law (approx.); often correlated with `a_over_rs`.
+## 7. Artifacts & Reproducibility
+Artifacts are versioned by `RUN_TAG` (default: `v1`) under `artifacts/`:
 
-#### eccentricity
+- `artifacts/model_search/<run_tag>/`
+  - `search_results.joblib`
+  - `cv_summary.csv`
+- `artifacts/evaluation/<run_tag>/`
+  - `tuned_threshold_models.joblib`
+  - `threshold_tuning_summary.csv`
+  - `comparison_df.csv`
+- `artifacts/deployment/<run_tag>/`
+  - `deploy_models.joblib`
+  - `deploy_manifest.csv`
+- `artifacts/visualization/<run_tag>/`
+  - per-model/per-dataset confusion/ROC/PR plots
+  - `plot_manifest.csv`
+- `artifacts/feature_analysis/<run_tag>/`
+  - permutation importance outputs and metadata
 
-**Meaning:** Orbit shape parameter (0=circular, >0=elliptical).
-**Dependencies/redundancy:** Interacts with `arg_periastron_deg`; if `eccentricity ≈ 0`, periastron angle is physically irrelevant.
+Important:
+- Keep a stable `run_tag` for demo consistency.
+- Use a new tag (`v2`, `v3`, ...) when retraining to avoid mixing artifacts.
 
-#### arg_periastron_deg
+## 8. How to Run
+### Environment setup
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
 
-**Meaning:** Argument/longitude of periastron in degrees (orientation of the ellipse).
-**Dependencies/redundancy:** Only meaningful when `eccentricity > 0`; otherwise effectively undefined.
+### Execute notebooks in order
+1. `01_data_preparation.ipynb`
+2. `02_feature_selection_and_preprocessing.ipynb`
+3. `03_train_and_tune_models.ipynb`
+4. `04_evaluate_models.ipynb`
+5. `05_feature_analysis.ipynb`
+6. `06_visualisations.ipynb`
 
-#### impact_parameter
+### Notes
+- Run from project root or `notebooks/`; notebooks include path handling for `src/`.
+- If you retrain/evaluate intentionally, set the appropriate force flags or bump `RUN_TAG`.
 
-**Meaning:** Transit impact parameter (b) (0=center crossing, ~1=grazing).
-**Dependencies/redundancy:** Geometrically linked to `inclination_deg` and `a_over_rs`.
-
-#### inclination_deg
-
-**Meaning:** Orbital inclination in degrees (transits require inclination near 90°).
-**Dependencies/redundancy:** Strongly linked to `impact_parameter` and `a_over_rs` by geometry.
-
----
-
-#### transit_duration_hours
-
-**Meaning:** Total transit duration in hours.
-**Dependencies/redundancy:** Depends on orbit geometry and scale (often linked to `orbital_period_days`, `a_over_rs`, `impact_parameter`, and to a lesser extent `radius_ratio_rp_rs`).
-
-#### transit_depth_ppm
-
-**Meaning:** Transit depth in parts-per-million (fractional brightness drop).
-**Dependencies/redundancy:** Approximately (\text{depth} \approx (R_p/R_s)^2), so it is tightly related to `radius_ratio_rp_rs`.
-
-#### radius_ratio_rp_rs
-
-**Meaning:** Radius ratio (R_p/R_s) (planet radius over stellar radius).
-**Dependencies/redundancy:** Squared value is closely related to `transit_depth_ppm`; also linked to `planet_radius_rearth` and `stellar_radius_rsun` via (R_p = (R_p/R_s)\cdot R_s).
-
----
-
-#### a_over_rs
-
-**Meaning:** Scaled semi-major axis (a/R_s).
-**Dependencies/redundancy:** Related to `semi_major_axis_au` and `stellar_radius_rsun` (if derived); also correlated with `orbital_period_days` and `stellar_mass_msun` through Kepler’s law.
-
-#### semi_major_axis_au
-
-**Meaning:** Semi-major axis (a) in astronomical units (AU).
-**Dependencies/redundancy:** Related to `orbital_period_days` and `stellar_mass_msun` via Kepler’s 3rd law (approx.).
-
----
-
-#### planet_radius_rearth
-
-**Meaning:** Planet radius in Earth radii.
-**Dependencies/redundancy:** Derived from `radius_ratio_rp_rs` and `stellar_radius_rsun`; also correlated with `transit_depth_ppm`.
-
-#### equilibrium_temp_k
-
-**Meaning:** Planet equilibrium temperature in Kelvin (based on simplifying assumptions).
-**Dependencies/redundancy:** Derived from stellar properties and orbital distance; correlated with `insolation_earth`, `stellar_teff_k`, and `semi_major_axis_au`.
-
-#### insolation_earth
-
-**Meaning:** Incident stellar flux on the planet in Earth units (Earth=1).
-**Dependencies/redundancy:** Derived from stellar luminosity and orbital distance; correlated with `equilibrium_temp_k` and `semi_major_axis_au`.
-
----
-
-#### stellar_teff_k
-
-**Meaning:** Host star effective temperature in Kelvin.
-**Dependencies/redundancy:** Correlated with `stellar_radius_rsun`, `stellar_mass_msun`, and derived irradiation (`equilibrium_temp_k`, `insolation_earth`).
-
-#### stellar_logg_cgs
-
-**Meaning:** Host star surface gravity (\log_{10}(g)) in cgs units (cm/s²).
-**Dependencies/redundancy:** Linked to `stellar_mass_msun` and `stellar_radius_rsun` via (g \propto M/R^2).
-
-#### stellar_metallicity_dex
-
-**Meaning:** Host star metallicity in dex (typically ([Fe/H])).
-**Dependencies/redundancy:** Not directly derivable from the other columns here; can correlate weakly with stellar population and planet occurrence.
-
-#### stellar_radius_rsun
-
-**Meaning:** Host star radius in solar radii.
-**Dependencies/redundancy:** Used to derive `planet_radius_rearth` from `radius_ratio_rp_rs`; correlated with `stellar_mass_msun` and `stellar_logg_cgs`.
-
-#### stellar_mass_msun
-
-**Meaning:** Host star mass in solar masses.
-**Dependencies/redundancy:** Together with `orbital_period_days` determines `semi_major_axis_au` (Kepler’s law); also linked to `stellar_logg_cgs` and `stellar_radius_rsun`.
-
-#### stellar_age_gyr
-
-**Meaning:** Host star age in gigayears.
-**Dependencies/redundancy:** Typically model-derived and loosely correlated with mass/metallicity/temperature, but not directly derivable from the other columns here.
+## 9. Limitations
+- Model/profile deployment choices were made after reviewing KOI test and K2P comparison metrics, so reported metrics may be mildly optimistic versus a strict untouched final holdout protocol.
+- This repository is designed for portfolio learning and reproducible experimentation, not operational or scientific production use.
