@@ -31,7 +31,11 @@ def get_default_model_specs(*, random_state: int = 42) -> dict[str, dict[str, An
             "params": {"clf__C": loguniform(1e-3, 1e2)},
         },
         "svc_rbf": {
-            "estimator": SVC(probability=True, class_weight="balanced"),
+            "estimator": SVC(
+                probability=True,
+                class_weight="balanced",
+                random_state=random_state,
+            ),
             "with_scaling": True,
             "params": {
                 "clf__C": loguniform(1e-2, 1e2),
