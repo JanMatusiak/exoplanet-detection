@@ -5,6 +5,13 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.metrics import (
+    ConfusionMatrixDisplay,
+    PrecisionRecallDisplay,
+    RocCurveDisplay,
+    average_precision_score,
+    roc_auc_score,
+)
 
 
 def plot_feature_histograms(
@@ -67,3 +74,75 @@ def plot_corr_heatmap(
 
     plt.tight_layout()
     plt.show()
+
+
+def plot_confusion_matrix_binary(
+    y_true,
+    y_pred,
+    *,
+    labels: tuple[int, int] = (0, 1),
+    normalize: str | None = "true",
+    title: str = "Confusion Matrix",
+    cmap: str = "Blues",
+    figsize: tuple[float, float] = (5.2, 4.2),
+) -> tuple[plt.Figure, plt.Axes]:
+    """Plot a binary confusion matrix and return figure + axes."""
+    fig, ax = plt.subplots(figsize=figsize)
+    ConfusionMatrixDisplay.from_predictions(
+        y_true,
+        y_pred,
+        labels=list(labels),
+        normalize=normalize,
+        cmap=cmap,
+        colorbar=False,
+        ax=ax,
+    )
+    ax.set_title(title)
+    fig.tight_layout()
+    return fig, ax
+
+
+def plot_roc_curve_binary(
+    y_true,
+    y_score,
+    *,
+    title: str = "ROC Curve",
+    plot_chance_level: bool = True,
+    figsize: tuple[float, float] = (5.2, 4.2),
+) -> tuple[plt.Figure, plt.Axes, float]:
+    """Plot ROC curve for binary classification and return figure + AUC."""
+    roc_auc = float(roc_auc_score(y_true, y_score))
+    fig, ax = plt.subplots(figsize=figsize)
+    RocCurveDisplay.from_predictions(
+        y_true,
+        y_score,
+        ax=ax,
+        name=f"ROC AUC = {roc_auc:.3f}",
+        plot_chance_level=plot_chance_level,
+    )
+    ax.set_title(title)
+    fig.tight_layout()
+    return fig, ax, roc_auc
+
+
+def plot_pr_curve_binary(
+    y_true,
+    y_score,
+    *,
+    title: str = "Precision-Recall Curve",
+    plot_chance_level: bool = True,
+    figsize: tuple[float, float] = (5.2, 4.2),
+) -> tuple[plt.Figure, plt.Axes, float]:
+    """Plot precision-recall curve for binary classification and return figure + AP."""
+    average_precision = float(average_precision_score(y_true, y_score))
+    fig, ax = plt.subplots(figsize=figsize)
+    PrecisionRecallDisplay.from_predictions(
+        y_true,
+        y_score,
+        ax=ax,
+        name=f"AP = {average_precision:.3f}",
+        plot_chance_level=plot_chance_level,
+    )
+    ax.set_title(title)
+    fig.tight_layout()
+    return fig, ax, average_precision
