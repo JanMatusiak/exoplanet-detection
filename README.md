@@ -25,6 +25,10 @@ The target is `label` where `1` means planet-like and `0` means non-planet-like.
   - `CANDIDATE` is excluded from supervised training.
 - Group-aware split:
   - `group_id` is used in `StratifiedGroupKFold` to reduce host-level leakage risk.
+- Full mapped feature descriptions:
+  - `FEATURES.md`
+- Final model training features:
+  - The training pipeline uses `FINAL_FEATURE_COLUMNS` (defined in `src/exoplanet_detector/features/feature_selection.py`), not all mapped columns.
 
 ## 4. Pipeline Overview (Notebook Map)
 - `notebooks/01_data_preparation.ipynb`
