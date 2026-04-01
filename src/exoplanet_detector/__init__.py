@@ -1,3 +1,3 @@
 """Exoplanet detection package."""
 
-__all__ = ["data", "features", "utils", "visualization"]
+__all__ = ["app", "data", "features", "models", "utils", "visualization"]
