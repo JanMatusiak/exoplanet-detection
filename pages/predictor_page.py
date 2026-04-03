@@ -37,11 +37,11 @@ def render_header(title: str, subtitle: str, links: dict[str, str]) -> None:
             st.link_button(label, url, use_container_width=True)
 
 
-def choose_example_record(service, context) -> tuple[pd.DataFrame, dict[str, float]]:
+def choose_example_record(service, context) -> tuple[pd.DataFrame, dict[str, float], str]:
     dataset_options = service.list_example_datasets()
     if not dataset_options:
         st.info("No example datasets are available.")
-        return pd.DataFrame(), {}
+        return pd.DataFrame(), {}, ""
 
     dataset_by_key = {item["key"]: item for item in dataset_options}
     selected_dataset_key = st.selectbox(
@@ -57,7 +57,7 @@ def choose_example_record(service, context) -> tuple[pd.DataFrame, dict[str, flo
     example_index_table = service.list_example_records(context, dataset_key=selected_dataset_key)
     if example_index_table.empty:
         st.info("No example records are available.")
-        return example_index_table, {}
+        return example_index_table, {}, f"{selected_dataset_key}:empty"
 
     selector_col = "example_row_id"
     if "group_id" in example_index_table.columns:
@@ -82,7 +82,40 @@ def choose_example_record(service, context) -> tuple[pd.DataFrame, dict[str, flo
         use_container_width=True,
         hide_index=True,
     )
-    return example_index_table, record
+    return example_index_table, record, f"{selected_dataset_key}:{row_idx}"
+
+
+def apply_example_prefill(
+    initial_values: dict[str, float],
+    *,
+    prefill_signature: str,
+    input_mode: str,
+) -> None:
+    if input_mode != "Load example record":
+        st.session_state.pop("predictor_prefill_signature", None)
+        return
+
+    if not initial_values:
+        return
+
+    if st.session_state.get("predictor_prefill_signature") == prefill_signature:
+        return
+
+    for feature_name, raw_value in initial_values.items():
+        widget_key = f"input_{feature_name}"
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError):
+            st.session_state.pop(widget_key, None)
+            continue
+
+        if math.isnan(value):
+            st.session_state.pop(widget_key, None)
+            continue
+
+        st.session_state[widget_key] = value
+
+    st.session_state["predictor_prefill_signature"] = prefill_signature
 
 
 def default_feature_value(feature_schema: dict[str, Any], loaded_value: float | None = None) -> float:
@@ -248,8 +281,15 @@ def main() -> None:
     )
 
     initial_values: dict[str, float] = {}
+    prefill_signature = ""
     if input_mode == "Load example record":
-        _, initial_values = choose_example_record(service, context)
+        _, initial_values, prefill_signature = choose_example_record(service, context)
+
+    apply_example_prefill(
+        initial_values,
+        prefill_signature=prefill_signature,
+        input_mode=input_mode,
+    )
 
     schema = service.get_input_schema()
 
