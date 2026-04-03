@@ -38,7 +38,23 @@ def render_header(title: str, subtitle: str, links: dict[str, str]) -> None:
 
 
 def choose_example_record(service, context) -> tuple[pd.DataFrame, dict[str, float]]:
-    example_index_table = service.list_example_records(context)
+    dataset_options = service.list_example_datasets()
+    if not dataset_options:
+        st.info("No example datasets are available.")
+        return pd.DataFrame(), {}
+
+    dataset_by_key = {item["key"]: item for item in dataset_options}
+    selected_dataset_key = st.selectbox(
+        "Example dataset",
+        options=list(dataset_by_key),
+        format_func=lambda key: dataset_by_key[key]["label"],
+        key="predictor_example_dataset",
+    )
+    selected_dataset = dataset_by_key[selected_dataset_key]
+    label_status = "known labels (0/1)" if selected_dataset["label_known"] else "unlabeled candidates"
+    st.caption(f"Selected source: {selected_dataset['label']} ({label_status}).")
+
+    example_index_table = service.list_example_records(context, dataset_key=selected_dataset_key)
     if example_index_table.empty:
         st.info("No example records are available.")
         return example_index_table, {}
@@ -59,7 +75,7 @@ def choose_example_record(service, context) -> tuple[pd.DataFrame, dict[str, flo
     else:
         row_idx = int(selection)
 
-    record = service.get_example_record(context, row_idx=row_idx)
+    record = service.get_example_record(context, dataset_key=selected_dataset_key, row_idx=row_idx)
     preview_cols = [col for col in ["example_row_id", "group_id", "label"] if col in example_index_table.columns]
     st.dataframe(
         example_index_table[example_index_table["example_row_id"] == row_idx][preview_cols],
@@ -154,6 +170,12 @@ def render_explanation_output(explanation: dict[str, Any]) -> None:
             shown_anything = True
             continue
 
+        if isinstance(value, pd.Series):
+            st.markdown(f"**{key}**")
+            st.dataframe(value.rename("value").to_frame(), use_container_width=True)
+            shown_anything = True
+            continue
+
         if isinstance(value, str):
             lower_key = key.lower()
             looks_like_path = "path" in lower_key or "plot" in lower_key
@@ -162,6 +184,12 @@ def render_explanation_output(explanation: dict[str, Any]) -> None:
                 st.image(value, use_container_width=True)
                 shown_anything = True
                 continue
+
+        if "figure" in key.lower() and hasattr(value, "savefig"):
+            st.markdown(f"**{key}**")
+            st.pyplot(value, use_container_width=True)
+            shown_anything = True
+            continue
 
     scalar_payload = {}
     for key, value in explanation.items():
@@ -246,16 +274,20 @@ def main() -> None:
             feature_values=cleaned_values,
         )
         render_prediction_output(prediction)
+    except Exception as exc:
+        st.error("Prediction failed.")
+        st.exception(exc)
+        return
 
+    try:
         explanation = service.explain(
             context,
             deploy_id=selected_model["deploy_id"],
             feature_values=cleaned_values,
         )
         render_explanation_output(explanation)
-
     except Exception as exc:
-        st.error("Prediction failed.")
+        st.warning("Prediction succeeded, but explanation could not be generated.")
         st.exception(exc)
 
 

@@ -13,7 +13,10 @@ from exoplanet_detector.config import (
     ARTIFACTS_DIR,
     DEFAULT_RUN_TAG,
     K2P_FILE,
+    K2P_UNLABELED_FILE,
+    KOI_TRAIN_FILE,
     KOI_TEST_FILE,
+    KOI_UNLABELED_FILE,
     get_run_artifact_dirs,
 )
 from exoplanet_detector.features.feature_selection import FINAL_FEATURE_COLUMNS, PHYSICAL_INTERVALS
@@ -24,11 +27,76 @@ RunContext = dict[str, Any]
 
 def _dataset_path_by_name(dataset_name: str) -> Path:
     name = dataset_name.strip()
-    if name == "K2P":
-        return K2P_FILE
-    if name == "KOI_test":
-        return KOI_TEST_FILE
-    raise ValueError(f"Unsupported dataset name: {dataset_name!r}. Use 'K2P' or 'KOI_test'.")
+    path_map = {
+        "KOI_train": KOI_TRAIN_FILE,
+        "KOI_test": KOI_TEST_FILE,
+        "K2P_labeled": K2P_FILE,
+        "K2P": K2P_FILE,
+        "KOI_unlabeled": KOI_UNLABELED_FILE,
+        "K2P_unlabeled": K2P_UNLABELED_FILE,
+    }
+    if name in path_map:
+        return path_map[name]
+    allowed = ", ".join(sorted(path_map))
+    raise ValueError(f"Unsupported dataset name: {dataset_name!r}. Use one of: {allowed}.")
+
+
+def _example_dataset_catalog() -> dict[str, dict[str, Any]]:
+    return {
+        "KOI_train": {
+            "label": "KOI train (labeled)",
+            "label_known": True,
+            "path": KOI_TRAIN_FILE,
+        },
+        "KOI_test": {
+            "label": "KOI test (labeled)",
+            "label_known": True,
+            "path": KOI_TEST_FILE,
+        },
+        "K2P_labeled": {
+            "label": "K2P labeled",
+            "label_known": True,
+            "path": K2P_FILE,
+        },
+        "KOI_unlabeled": {
+            "label": "KOI unlabeled candidates",
+            "label_known": False,
+            "path": KOI_UNLABELED_FILE,
+        },
+        "K2P_unlabeled": {
+            "label": "K2P unlabeled candidates",
+            "label_known": False,
+            "path": K2P_UNLABELED_FILE,
+        },
+    }
+
+
+def list_example_datasets() -> list[dict[str, Any]]:
+    datasets: list[dict[str, Any]] = []
+    for key, spec in _example_dataset_catalog().items():
+        path = spec["path"]
+        if not path.exists():
+            continue
+        datasets.append(
+            {
+                "key": key,
+                "label": spec["label"],
+                "label_known": bool(spec["label_known"]),
+            }
+        )
+    return datasets
+
+
+@lru_cache(maxsize=8)
+def _load_example_dataset(dataset_key: str) -> pd.DataFrame:
+    catalog = _example_dataset_catalog()
+    if dataset_key not in catalog:
+        allowed = ", ".join(sorted(catalog))
+        raise ValueError(f"Unsupported example dataset: {dataset_key!r}. Use one of: {allowed}.")
+    path = catalog[dataset_key]["path"]
+    if not path.exists():
+        raise FileNotFoundError(f"Example dataset file not found for {dataset_key!r}: {path}")
+    return pd.read_csv(path)
 
 
 def _read_optional_csv(path: Path) -> pd.DataFrame:
@@ -41,7 +109,7 @@ def _read_optional_csv(path: Path) -> pd.DataFrame:
 def get_run_context(
     run_tag: str = DEFAULT_RUN_TAG,
     *,
-    example_dataset: str = "K2P",
+    example_dataset: str = "K2P_labeled",
     background_dataset: str = "KOI_test",
 ) -> RunContext:
     """
@@ -77,7 +145,7 @@ def get_run_context(
     permutation_importance_df = _read_optional_csv(permutation_importance_path)
     feature_importance_matrix_df = _read_optional_csv(feature_importance_matrix_path)
 
-    example_df = pd.read_csv(_dataset_path_by_name(example_dataset))
+    example_df = _read_optional_csv(_dataset_path_by_name(example_dataset))
     background_df = pd.read_csv(_dataset_path_by_name(background_dataset))
 
     selected_features = list(FINAL_FEATURE_COLUMNS)
@@ -264,11 +332,13 @@ def get_input_schema() -> list[dict[str, Any]]:
 def list_example_records(
     context: RunContext,
     *,
+    dataset_key: str = "K2P_labeled",
     id_column: str = "group_id",
     max_rows: int | None = 500,
 ) -> pd.DataFrame:
     """Return a lightweight table of selectable example records."""
-    df = context["example_df"].reset_index(drop=True).copy()
+    _ = context
+    df = _load_example_dataset(dataset_key).reset_index(drop=True).copy()
     if max_rows is not None and max_rows > 0:
         df = df.head(max_rows).copy()
 
@@ -283,9 +353,15 @@ def list_example_records(
     return df.loc[:, columns].copy()
 
 
-def get_example_record(context: RunContext, *, row_idx: int) -> dict[str, float]:
+def get_example_record(
+    context: RunContext,
+    *,
+    dataset_key: str = "K2P_labeled",
+    row_idx: int,
+) -> dict[str, float]:
     """Return one record (final features only) as a feature-value dictionary."""
-    df = context["example_df"].reset_index(drop=True)
+    _ = context
+    df = _load_example_dataset(dataset_key).reset_index(drop=True)
     if not 0 <= int(row_idx) < len(df):
         raise IndexError(f"row_idx out of bounds: {row_idx}. Valid range is [0, {len(df) - 1}].")
 
@@ -434,6 +510,7 @@ __all__ = [
     "get_profile_links",
     "get_run_context",
     "list_datasets_for_plots",
+    "list_example_datasets",
     "list_example_records",
     "list_models",
     "list_plot_types",
