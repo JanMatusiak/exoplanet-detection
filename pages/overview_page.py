@@ -153,11 +153,17 @@ def main() -> None:
     )
 
     st.markdown(
-        '''
-        This page is intended to introduce the project and let the user explore
-        the available evaluation artifacts. Replace this text with your final
-        project description, dataset summary, model rationale and conclusions.
-        '''
+        """
+    ### Exoplanet Candidate Detection
+
+    This project classifies Kepler/K2 candidates as **planet-like (`1`)** or **non-planet-like (`0`)** from tabular astrophysical features.  
+    It includes a full pipeline from data prep to deployable models, plus interactive evaluation and interpretability artifacts.
+
+    I compare five model families and deploy three threshold profiles: **balanced (`f2`)**, **recall-priority**, and **precision-priority**.  
+    In the current `v1` artifacts, the **`f2` deployment** provides the best overall trade-off, while the other two profiles are available for stricter recall or precision needs.
+
+    Use the controls below to explore model comparison tables, plots (confusion/ROC/PR), and feature-importance outputs.
+    """
     )
 
     comparison_df = safe_dataframe(context.get("comparison_df"))
