@@ -26,6 +26,14 @@ def load_context(run_tag: str):
     return service.get_run_context(**kwargs)
 
 
+@st.cache_resource
+def load_context_with_background(run_tag: str, background_dataset: str):
+    service = load_service()
+    kwargs = {"run_tag": run_tag} if str(run_tag).strip() else {}
+    kwargs["background_dataset"] = background_dataset
+    return service.get_run_context(**kwargs)
+
+
 def render_header(title: str, subtitle: str, links: dict[str, str]) -> None:
     left, *right_cols = st.columns([7, 1, 1, 1])
     with left:
@@ -37,11 +45,11 @@ def render_header(title: str, subtitle: str, links: dict[str, str]) -> None:
             st.link_button(label, url, use_container_width=True)
 
 
-def choose_example_record(service, context) -> tuple[pd.DataFrame, dict[str, float], str]:
+def choose_example_record(service, context) -> tuple[pd.DataFrame, dict[str, float], str, str]:
     dataset_options = service.list_example_datasets()
     if not dataset_options:
         st.info("No example datasets are available.")
-        return pd.DataFrame(), {}, ""
+        return pd.DataFrame(), {}, "", ""
 
     dataset_by_key = {item["key"]: item for item in dataset_options}
     selected_dataset_key = st.selectbox(
@@ -57,7 +65,7 @@ def choose_example_record(service, context) -> tuple[pd.DataFrame, dict[str, flo
     example_index_table = service.list_example_records(context, dataset_key=selected_dataset_key)
     if example_index_table.empty:
         st.info("No example records are available.")
-        return example_index_table, {}, f"{selected_dataset_key}:empty"
+        return example_index_table, {}, f"{selected_dataset_key}:empty", selected_dataset_key
 
     selector_col = "example_row_id"
     if "group_id" in example_index_table.columns:
@@ -82,7 +90,7 @@ def choose_example_record(service, context) -> tuple[pd.DataFrame, dict[str, flo
         use_container_width=True,
         hide_index=True,
     )
-    return example_index_table, record, f"{selected_dataset_key}:{row_idx}"
+    return example_index_table, record, f"{selected_dataset_key}:{row_idx}", selected_dataset_key
 
 
 def apply_example_prefill(
@@ -282,8 +290,12 @@ def main() -> None:
 
     initial_values: dict[str, float] = {}
     prefill_signature = ""
+    selected_example_dataset_key = ""
     if input_mode == "Load example record":
-        _, initial_values, prefill_signature = choose_example_record(service, context)
+        _, initial_values, prefill_signature, selected_example_dataset_key = choose_example_record(
+            service,
+            context,
+        )
 
     apply_example_prefill(
         initial_values,
@@ -320,8 +332,15 @@ def main() -> None:
         return
 
     try:
+        explanation_context = context
+        if input_mode == "Load example record" and selected_example_dataset_key:
+            explanation_context = load_context_with_background(
+                st.session_state.get("run_tag", ""),
+                selected_example_dataset_key,
+            )
+
         explanation = service.explain(
-            context,
+            explanation_context,
             deploy_id=selected_model["deploy_id"],
             feature_values=cleaned_values,
         )

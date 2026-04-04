@@ -1,6 +1,5 @@
 import importlib
 import os
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -112,7 +111,7 @@ def render_feature_importance_section(service, context) -> None:
             key="importance_dataset",
         )
     with col3:
-        top_n = st.slider("Top features", min_value=5, max_value=30, value=15)
+        top_n = st.slider("Top features", min_value=5, max_value=11, value=11)
 
     selected_model = next(m for m in model_options if m["label"] == selected_model_label)
     importance_df = service.get_feature_importance(
@@ -174,8 +173,6 @@ def main() -> None:
     with left:
         st.subheader("Run summary")
         st.write(f"Run tag: `{context.get('run_tag', '')}`")
-        st.write(f"Example dataset: `{context.get('example_dataset_name', '')}`")
-        st.write(f"Background dataset: `{context.get('background_dataset_name', '')}`")
         st.write(f"Feature count: `{len(context.get('feature_columns', []))}`")
 
         st.subheader("Available models")
