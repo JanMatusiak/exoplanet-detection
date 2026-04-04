@@ -31,3 +31,4 @@ shap==0.47.2
 jupyterlab
 ipykernel
 streamlit
+pytest==8.4.2
