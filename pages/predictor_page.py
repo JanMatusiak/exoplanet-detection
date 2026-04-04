@@ -34,6 +34,60 @@ def load_context_with_background(run_tag: str, background_dataset: str):
     return service.get_run_context(**kwargs)
 
 
+def _normalize_markdown_block(lines: list[str]) -> str:
+    start = 0
+    end = len(lines)
+
+    while start < end and not lines[start].strip():
+        start += 1
+    while end > start and not lines[end - 1].strip():
+        end -= 1
+
+    return "\n".join(lines[start:end])
+
+
+@st.cache_data
+def load_feature_descriptions() -> dict[str, str]:
+    """Parse per-feature descriptions from FEATURES.md headings."""
+    features_path = Path(__file__).resolve().parents[1] / "FEATURES.md"
+    if not features_path.exists():
+        return {}
+
+    descriptions: dict[str, str] = {}
+    current_feature: str | None = None
+    collected_lines: list[str] = []
+
+    for raw_line in features_path.read_text(encoding="utf-8").splitlines():
+        if raw_line.startswith("### "):
+            if current_feature is not None:
+                description = _normalize_markdown_block(collected_lines)
+                if description:
+                    descriptions[current_feature] = description
+            current_feature = raw_line[4:].strip()
+            collected_lines = []
+            continue
+
+        if current_feature is None:
+            continue
+
+        if raw_line.startswith("## "):
+            description = _normalize_markdown_block(collected_lines)
+            if description:
+                descriptions[current_feature] = description
+            current_feature = None
+            collected_lines = []
+            continue
+
+        collected_lines.append(raw_line)
+
+    if current_feature is not None:
+        description = _normalize_markdown_block(collected_lines)
+        if description:
+            descriptions[current_feature] = description
+
+    return descriptions
+
+
 def render_header(title: str, subtitle: str, links: dict[str, str]) -> None:
     left, *right_cols = st.columns([7, 1, 1, 1])
     with left:
@@ -142,7 +196,11 @@ def default_feature_value(feature_schema: dict[str, Any], loaded_value: float | 
     return 0.0
 
 
-def build_feature_form(service, schema: list[dict[str, Any]], initial_values: dict[str, float]) -> dict[str, float]:
+def build_feature_form(
+    schema: list[dict[str, Any]],
+    initial_values: dict[str, float],
+    feature_descriptions: dict[str, str],
+) -> dict[str, float]:
     values: dict[str, float] = {}
     columns = st.columns(2)
 
@@ -153,9 +211,11 @@ def build_feature_form(service, schema: list[dict[str, Any]], initial_values: di
                 "label": feature["label"],
                 "value": default_feature_value(feature, initial_values.get(feature["name"])),
                 "format": "%.6f",
-                "help": f"Allowed range: {feature['allowed_range_text']}",
                 "key": f"input_{feature['name']}",
             }
+            description = feature_descriptions.get(feature["name"], "").strip()
+            if description:
+                kwargs["help"] = description
             if feature["min_value"] is not None:
                 kwargs["min_value"] = float(feature["min_value"])
             if feature["max_value"] is not None:
@@ -304,9 +364,10 @@ def main() -> None:
     )
 
     schema = service.get_input_schema()
+    feature_descriptions = load_feature_descriptions()
 
     with st.form("prediction_form"):
-        feature_values = build_feature_form(service, schema, initial_values)
+        feature_values = build_feature_form(schema, initial_values, feature_descriptions)
         submitted = st.form_submit_button("Run prediction", use_container_width=True)
 
     if not submitted:

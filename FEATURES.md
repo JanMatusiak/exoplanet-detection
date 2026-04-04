@@ -61,7 +61,7 @@ Influenced by orbit speed, orbit geometry, and star size.
 
 ### transit_depth
 How much the star brightness drops during transit.  
-Unit: harmonized during preprocessing (KOI and K2P are aligned to one scale).  
+Unit: parts per million - harmonized during preprocessing (KOI and K2P are aligned to one scale).  
 Interpretation:
 - larger depth: stronger dimming signal, often larger planet relative to star
 
