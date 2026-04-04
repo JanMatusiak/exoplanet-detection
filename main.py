@@ -63,10 +63,22 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    @media (min-width: 768px) {
-        section[data-testid="stSidebar"] {
-            min-width: 15rem !important;
-        }
+    section[data-testid="stSidebar"] {
+        min-width: 15rem !important;
+        width: 15rem !important;
+        max-width: 15rem !important;
+    }
+
+    button[data-testid="stSidebarCollapseButton"] {
+        display: none !important;
+    }
+
+    button[data-testid="collapsedControl"] {
+        display: none !important;
+    }
+
+    section[data-testid="stSidebar"] [data-testid="stSidebarHeader"] button {
+        display: none !important;
     }
     </style>
     """,
