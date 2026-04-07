@@ -6,8 +6,15 @@ import streamlit as st
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 ICON_DIR = PROJECT_ROOT / "assets" / "icons"
+CV_PATH = PROJECT_ROOT / "assets" / "cv.pdf"
 
 PROFILE_LINKS = (
+    {
+        "label": "CV",
+        "path": CV_PATH,
+        "download_name": "Jan_Matusiak_CV.pdf",
+        "icon": ICON_DIR / "cv.svg",
+    },
     {
         "label": "LinkedIn",
         "url": "https://www.linkedin.com/in/janmatusiak/",
@@ -34,6 +41,13 @@ def icon_data_uri(icon_path: str) -> str:
     return f"data:{mime};base64,{encoded}"
 
 
+@st.cache_data
+def file_data_uri(file_path: str, mime: str) -> str:
+    path = Path(file_path)
+    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:{mime};base64,{encoded}"
+
+
 def render_connect_link(label: str, url: str, icon_path: Path) -> None:
     icon_uri = icon_data_uri(str(icon_path))
     st.markdown(
@@ -52,6 +66,35 @@ def render_connect_link(label: str, url: str, icon_path: Path) -> None:
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_connect_download(
+    label: str,
+    file_path: Path,
+    icon_path: Path,
+    *,
+    download_name: str | None = None,
+) -> None:
+    icon_uri = icon_data_uri(str(icon_path))
+    file_uri = file_data_uri(str(file_path), "application/pdf")
+    filename = download_name or file_path.name
+    st.markdown(
+        f"""
+        <a href="{file_uri}" download="{filename}" style="
+            display:flex;
+            align-items:center;
+            gap:0.5rem;
+            padding:0.35rem 0;
+            text-decoration:none;
+            color:inherit;
+        ">
+            <img src="{icon_uri}" alt="{label} icon" width="18" height="18" />
+            <span>{label}</span>
+        </a>
+        """,
+        unsafe_allow_html=True,
+    )
+
 
 st.set_page_config(
     page_title="Portfolio Project",
@@ -109,10 +152,33 @@ predictor_page = st.Page(
 navigation = st.navigation([overview_page, predictor_page], position="sidebar")
 with st.sidebar:
     st.divider()
+    st.markdown(
+        """
+        ### About Me
+        #### Jan Matusiak
+        Data Engineering Student at Gdansk University of Technology and a Developer at 
+        Student Research Group of Measurement Systems and Automation.
+        Passionate about data and ML.
+        """
+    )
+
+    cv_link = next((link for link in PROFILE_LINKS if link["label"] == "CV"), None)
+    if cv_link is not None:
+        if "url" in cv_link:
+            render_connect_link(cv_link["label"], str(cv_link["url"]), cv_link["icon"])
+        else:
+            render_connect_download(
+                cv_link["label"],
+                Path(cv_link["path"]),
+                cv_link["icon"],
+                download_name=cv_link.get("download_name"),
+            )
+
     st.markdown("### Connect")
     for link in PROFILE_LINKS:
-        render_connect_link(link["label"], link["url"], link["icon"])
-
+        if link["label"] == "CV":
+            continue
+        render_connect_link(link["label"], str(link["url"]), link["icon"])
     email_address = next(
         (link["url"].replace("mailto:", "") for link in PROFILE_LINKS if link["label"] == "Email"),
         "",

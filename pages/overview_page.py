@@ -110,11 +110,12 @@ def render_feature_importance_section(service, context) -> None:
 
     st.markdown(
         """
-        This table shows **permutation feature importance**, i.e. how much model performance changes when one feature is randomly shuffled while all other features stay unchanged.  
+        This table shows **permutation feature importance** - how much model performance changes when one feature is randomly shuffled while other stay unchanged.  
         Importance is computed repeatedly (20 times) for each feature on the selected dataset and model profile.  
+        For interpretation, this view uses a continuous profile-aligned metric (f2 for f2, recall for recall-priority, precision for precision-priority), while floor constraints (0.5) are used during threshold/profile selection, not in this importance score.  
+        These metrics are bounded between 0 and 1, which is why the values of importance mean are also in this range.  
         **importance_mean** is the average score impact across repeats (higher usually means the feature matters more), and **importance_std** is the variability of that impact (lower means more stable importance estimates).  
-        A **negative** importance means shuffling that feature slightly improved the metric, which usually indicates noise, redundancy, or sampling variability.  
-        Values are below 1 because importance was calculated as a change in optimized metric, which are in range [0-1].
+        Because these profiles use extreme thresholds (very low for recall-priority, very high for precision-priority), the chosen metric can be relatively insensitive to shuffling one feature. That is why many importances are close to zero or slightly negative, even though other performance aspects may still worsen. 
         """
     )
 
