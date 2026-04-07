@@ -11,6 +11,10 @@ SERVICE_MODULE = os.getenv(
     "exoplanet_detector.app.services",
 )
 
+# Optional: specify exactly which columns to show in the Feature importance table.
+# Leave empty (`[]`) to display all available columns.
+FEATURE_IMPORTANCE_DISPLAY_COLUMNS = ["importance_rank", "feature", "importance_mean", "importance_std"]
+
 
 @st.cache_resource
 def load_service():
@@ -81,7 +85,9 @@ def render_plot_section(service, context) -> None:
             dataset=selected_dataset,
             plot_type=selected_plot_type,
         )
-        st.image(str(plot_path), use_container_width=True)
+        left_col, center_col, right_col = st.columns([1, 2, 1])
+        with center_col:
+            st.image(str(plot_path), use_container_width=True)
         st.caption(f"Loaded from: {plot_path}")
     except Exception as exc:
         st.warning(f"Unable to load the selected plot: {exc}")
@@ -125,7 +131,18 @@ def render_feature_importance_section(service, context) -> None:
         st.info("No feature-importance rows were found for that combination.")
         return
 
-    st.dataframe(importance_df, use_container_width=True, hide_index=True)
+    if FEATURE_IMPORTANCE_DISPLAY_COLUMNS:
+        display_columns = [
+            col for col in FEATURE_IMPORTANCE_DISPLAY_COLUMNS if col in importance_df.columns
+        ]
+        if not display_columns:
+            st.warning("None of the configured feature-importance columns were found.")
+            st.caption(f"Available columns: {', '.join(importance_df.columns)}")
+            return
+        table_df = importance_df.loc[:, display_columns]
+    else:
+        table_df = importance_df
+    st.dataframe(table_df, use_container_width=True, hide_index=True)
 
     if {"feature", "importance_mean"}.issubset(importance_df.columns):
         chart_df = importance_df.loc[:, ["feature", "importance_mean"]].set_index("feature")
@@ -171,11 +188,7 @@ def main() -> None:
     left, right = st.columns([1.25, 1.75])
 
     with left:
-        st.subheader("Run summary")
-        st.write(f"Run tag: `{context.get('run_tag', '')}`")
-        st.write(f"Feature count: `{len(context.get('feature_columns', []))}`")
-
-        st.subheader("Available models")
+        st.subheader("Final models")
         if manifest_df.empty:
             st.info("No deploy manifest available.")
         else:
@@ -186,7 +199,7 @@ def main() -> None:
             st.dataframe(manifest_df.loc[:, display_cols], use_container_width=True, hide_index=True)
 
     with right:
-        st.subheader("Model comparison")
+        st.subheader("All models")
         if comparison_df.empty:
             st.info("No comparison table available.")
         else:

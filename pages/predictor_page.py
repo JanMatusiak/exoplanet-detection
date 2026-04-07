@@ -263,8 +263,12 @@ def render_explanation_output(explanation: dict[str, Any]) -> None:
         return
 
     shown_anything = False
+    hidden_keys = {"feature_values"}
 
     for key, value in explanation.items():
+        if key.lower() in hidden_keys:
+            continue
+
         if isinstance(value, pd.DataFrame):
             st.markdown(f"**{key}**")
             st.dataframe(value, use_container_width=True, hide_index=True)
@@ -294,6 +298,9 @@ def render_explanation_output(explanation: dict[str, Any]) -> None:
 
     scalar_payload = {}
     for key, value in explanation.items():
+        if key.lower() in hidden_keys:
+            continue
+
         if isinstance(value, (str, int, float, bool)) or value is None:
             if isinstance(value, str):
                 lower_key = key.lower()
