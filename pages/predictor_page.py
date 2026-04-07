@@ -286,13 +286,17 @@ def render_explanation_output(explanation: dict[str, Any]) -> None:
             looks_like_path = "path" in lower_key or "plot" in lower_key
             if looks_like_path and Path(value).exists():
                 st.markdown(f"**{key}**")
-                st.image(value, use_container_width=True)
+                left_col, center_col, right_col = st.columns([1, 2, 1])
+                with center_col:
+                    st.image(value, use_container_width=False)
                 shown_anything = True
                 continue
 
         if "figure" in key.lower() and hasattr(value, "savefig"):
             st.markdown(f"**{key}**")
-            st.pyplot(value, use_container_width=True)
+            left_col, center_col, right_col = st.columns([1, 2, 1])
+            with center_col:
+                st.pyplot(value, use_container_width=False)
             shown_anything = True
             continue
 

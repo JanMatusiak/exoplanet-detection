@@ -13,12 +13,29 @@ import joblib
 import numpy as np
 import pandas as pd
 from sklearn.inspection import permutation_importance
+from sklearn.metrics import fbeta_score, make_scorer, precision_score, recall_score
 
 from exoplanet_detector.config import ARTIFACTS_DIR, DEFAULT_RUN_TAG, TARGET_COLUMN
 from exoplanet_detector.features.feature_selection import FINAL_FEATURE_COLUMNS
 
 EvaluationSets = dict[str, tuple[pd.DataFrame, pd.Series]]
 DeployedModels = dict[str, dict[str, Any]]
+
+PROFILE_IMPORTANCE_SCORERS: dict[str, Any] = {
+    "f2": make_scorer(fbeta_score, beta=2, zero_division=0),
+    "recall": make_scorer(recall_score, zero_division=0),
+    "precision": make_scorer(precision_score, zero_division=0),
+}
+PROFILE_TO_IMPORTANCE_METRIC = {
+    "f2": "f2",
+    "best_f2": "f2",
+    "recall_constrained": "recall",
+    "best_recall_constrained": "recall",
+    "best_recall_pmin_0_5": "recall",
+    "precision_constrained": "precision",
+    "best_precision_constrained": "precision",
+    "best_precision_rmin_0_5": "precision",
+}
 
 
 def get_feature_analysis_paths(
@@ -114,7 +131,7 @@ def _cache_config_matches(
     feature_analysis_meta: Mapping[str, Any],
     *,
     run_tag: str,
-    scoring_name: str,
+    scoring_config: Any,
     n_repeats: int,
     random_state: int,
     n_jobs: int,
@@ -123,7 +140,8 @@ def _cache_config_matches(
 ) -> bool:
     return (
         feature_analysis_meta.get("run_tag") == run_tag
-        and feature_analysis_meta.get("scoring") == scoring_name
+        and _normalize_param_value(feature_analysis_meta.get("scoring"))
+        == _normalize_param_value(scoring_config)
         and feature_analysis_meta.get("n_repeats") == n_repeats
         and feature_analysis_meta.get("random_state") == random_state
         and feature_analysis_meta.get("n_jobs") == n_jobs
@@ -182,8 +200,10 @@ def _compute_permutation_importance(
     deployed_models: Mapping[str, Mapping[str, Any]],
     evaluation_sets: Mapping[str, tuple[pd.DataFrame, pd.Series]],
     *,
-    scorer: Any,
-    scoring_name: str,
+    scorer: Any | None,
+    scoring_name: str | None,
+    use_profile_scoring: bool,
+    profile_importance_scorers: Mapping[str, Any],
     n_repeats: int,
     random_state: int,
     n_jobs: int,
@@ -193,15 +213,30 @@ def _compute_permutation_importance(
     for deploy_id, spec in deployed_models.items():
         model = spec["model"]
         model_name = spec["model_name"]
-        profile = spec["profile"]
+        profile = str(spec["profile"])
         threshold = float(spec["threshold"])
+        metric_name = PROFILE_TO_IMPORTANCE_METRIC.get(profile.strip().lower(), "f2")
+
+        if use_profile_scoring:
+            scorer_for_model = profile_importance_scorers.get(metric_name)
+            if scorer_for_model is None:
+                available = ", ".join(sorted(profile_importance_scorers))
+                raise KeyError(
+                    f"Missing importance scorer for metric {metric_name!r}. Available: {available}"
+                )
+            scoring_for_model = metric_name
+        else:
+            if scorer is None:
+                raise ValueError("`scorer` must be provided when use_profile_scoring=False.")
+            scorer_for_model = scorer
+            scoring_for_model = scoring_name or "custom"
 
         for dataset_name, (x_eval, y_eval) in evaluation_sets.items():
             result = permutation_importance(
                 model,
                 x_eval,
                 y_eval,
-                scoring=scorer,
+                scoring=scorer_for_model,
                 n_repeats=n_repeats,
                 random_state=random_state,
                 n_jobs=n_jobs,
@@ -217,7 +252,7 @@ def _compute_permutation_importance(
                     "importance_mean": result.importances_mean,
                     "importance_std": result.importances_std,
                     "n_repeats": n_repeats,
-                    "scoring": scoring_name,
+                    "scoring": scoring_for_model,
                 }
             )
             dataset_df["importance_rank"] = (
@@ -239,24 +274,43 @@ def compute_or_load_permutation_importance(
     run_tag: str,
     permutation_importance_path: str | Path,
     feature_analysis_meta_path: str | Path,
-    scorer: Any,
+    scorer: Any | None = None,
     scoring_name: str = "f2",
+    use_profile_scoring: bool = True,
+    profile_importance_scorers: Mapping[str, Any] | None = None,
     n_repeats: int = 20,
     random_state: int = 42,
     n_jobs: int = 1,
     force_recompute: bool = False,
 ) -> tuple[pd.DataFrame, dict[str, Any], bool]:
-    """Compute permutation importance or load cached results."""
+    """Compute permutation importance or load cached results.
+
+    By default, scoring is profile-aware:
+    - f2 profile -> f2 scorer
+    - recall profile -> recall scorer
+    - precision profile -> precision scorer
+    """
     importance_path = Path(permutation_importance_path)
     meta_path = Path(feature_analysis_meta_path)
     deployment_signature = _build_deployment_signature(deployed_models)
+    scorers_by_metric = dict(profile_importance_scorers or PROFILE_IMPORTANCE_SCORERS)
+
+    scoring_config: Any
+    if use_profile_scoring:
+        scoring_config = {
+            "mode": "profile_aware_v1",
+            "profile_to_metric": dict(PROFILE_TO_IMPORTANCE_METRIC),
+            "metrics": sorted(scorers_by_metric.keys()),
+        }
+    else:
+        scoring_config = {"mode": "global", "scoring_name": scoring_name}
 
     if importance_path.exists() and meta_path.exists() and not force_recompute:
         feature_analysis_meta = json.loads(meta_path.read_text())
         matches = _cache_config_matches(
             feature_analysis_meta,
             run_tag=run_tag,
-            scoring_name=scoring_name,
+            scoring_config=scoring_config,
             n_repeats=n_repeats,
             random_state=random_state,
             n_jobs=n_jobs,
@@ -271,6 +325,8 @@ def compute_or_load_permutation_importance(
         evaluation_sets,
         scorer=scorer,
         scoring_name=scoring_name,
+        use_profile_scoring=use_profile_scoring,
+        profile_importance_scorers=scorers_by_metric,
         n_repeats=n_repeats,
         random_state=random_state,
         n_jobs=n_jobs,
@@ -282,7 +338,7 @@ def compute_or_load_permutation_importance(
     feature_analysis_meta = {
         "run_tag": run_tag,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
-        "scoring": scoring_name,
+        "scoring": scoring_config,
         "n_repeats": n_repeats,
         "random_state": random_state,
         "n_jobs": n_jobs,

@@ -53,6 +53,18 @@ def resolve_model_label(model_options: list[dict[str, Any]], deploy_id: str) -> 
 def render_plot_section(service, context) -> None:
     st.subheader("Interactive evaluation explorer")
 
+    st.markdown(
+        """
+        Select the model, dataset and plot type to evaluate against.
+        
+        **confusion_matrix**: Shows proportions of true positives, true negatives, false positives, and false negatives at the selected decision threshold. Use it to understand what kinds of errors the model is making in relative terms.
+
+        **roc_curve**: Plots true positive rate against false positive rate across all thresholds. Use it to evaluate how well the model separates classes independently of one fixed threshold.
+
+        **pr_curve**: Plots precision against recall across thresholds, focusing on positive-class performance. It is especially informative when classes are imbalanced and false positives/false negatives have different costs.
+        """
+    )
+
     model_options = service.list_models(context)
     datasets = service.list_datasets_for_plots(context)
     plot_types = service.list_plot_types()
@@ -95,6 +107,16 @@ def render_plot_section(service, context) -> None:
 
 def render_feature_importance_section(service, context) -> None:
     st.subheader("Feature importance")
+
+    st.markdown(
+        """
+        This table shows **permutation feature importance**, i.e. how much model performance changes when one feature is randomly shuffled while all other features stay unchanged.  
+        Importance is computed repeatedly (20 times) for each feature on the selected dataset and model profile.  
+        **importance_mean** is the average score impact across repeats (higher usually means the feature matters more), and **importance_std** is the variability of that impact (lower means more stable importance estimates).  
+        A **negative** importance means shuffling that feature slightly improved the metric, which usually indicates noise, redundancy, or sampling variability.  
+        Values are below 1 because importance was calculated as a change in optimized metric, which are in range [0-1].
+        """
+    )
 
     model_options = service.list_models(context)
     datasets = service.list_datasets_for_plots(context)
@@ -172,11 +194,26 @@ def main() -> None:
         """
     ### Exoplanet Candidate Detection
 
-    This project classifies Kepler/K2 candidates as **planet-like (`1`)** or **non-planet-like (`0`)** from tabular astrophysical features.  
-    It includes a full pipeline from data prep to deployable models, plus interactive evaluation and interpretability artifacts.
-
-    I compare five model families and deploy three threshold profiles: **balanced (`f2`)**, **recall-priority**, and **precision-priority**.  
-    In the current `v1` artifacts, the **`f2` deployment** provides the best overall trade-off, while the other two profiles are available for stricter recall or precision needs.
+    The goal of this project is to classify exoplanet candidates as planet-like (1) or non-planet-like (0) from tabular 
+    astrophysical measurements, and then expose the best model configurations in an interactive app for evaluation and prediction.
+    
+    The pipeline is built on two source datasets: KOI and K2P.
+    KOI (Kepler Objects of Interest) provides records with known dispositions, which makes it suitable for supervised 
+    training and model benchmarking. K2P represents a different candidate pool from the K2 context, with different 
+    distribution characteristics and less reliable/limited labeling for training purposes. 
+    Operationally, this is handled as a split into labeled data (used for fitting and validation) and unlabeled-style 
+    data (used for realistic inference and explanation workflows).
+    
+    Feature selection was intentionally restricted to physical, interpretable variables only. 
+    After removing non-physical identifiers, leakage-prone fields, and weak / redundant columns, 
+    the final model input includes 11 features.
+    
+    Training is performed across five model families under a common evaluation setup. 
+    From these, three deployable variants are selected as final profiles:
+    * Balanced F2 profile (for best overall performance, where recall is valued slightly more than precision),
+    * Recall-priority profile (maximum sensitivity, minimizes the risk of omitting a true planet),
+    * Precision-priority profile (stricter positive calls, minimizes the risk of false alarms).
+    This profile-based selection allows the same project to support different decision priorities without retraining the entire system.
 
     Use the controls below to explore model comparison tables, plots (confusion/ROC/PR), and feature-importance outputs.
     """
