@@ -29,14 +29,120 @@ def load_context(run_tag: str):
 
 
 def render_header(title: str, subtitle: str, links: dict[str, str]) -> None:
-    left, *right_cols = st.columns([7, 1, 1, 1])
+    left, *right_cols = st.columns([5, 1, 1, 1, 5])
     with left:
         st.title(title)
         st.caption(subtitle)
 
-    for col, (label, url) in zip(right_cols, links.items()):
+    for col, (label, url) in zip(right_cols[:-1], links.items()):
         with col:
             st.link_button(label, url, use_container_width=True)
+
+    with right_cols[-1]:
+        st.markdown(
+            """
+            <style>
+                .space-accent-overview {
+                    position: relative;
+                    margin-left: auto;
+                    width: 440px;
+                    height: 114px;
+                    overflow: visible;
+                    background: transparent;
+                    box-shadow: none;
+                }
+                .space-accent-overview .scene {
+                    position: absolute;
+                    right: 0;
+                    bottom: 0;
+                    width: 220px;
+                    height: 76px;
+                    transform-origin: right bottom;
+                    transform: scale(2, 1.5);
+                }
+                .space-accent-overview .star {
+                    position: absolute;
+                    border-radius: 50%;
+                    background: #ffffff;
+                    animation: twinkle-overview 2.6s ease-in-out infinite;
+                }
+                .space-accent-overview .s1 { width: 2px; height: 2px; top: 10px; left: 8px; animation-delay: 0.2s; }
+                .space-accent-overview .s2 { width: 2px; height: 2px; top: 18px; left: 34px; animation-delay: 0.8s; }
+                .space-accent-overview .s3 { width: 3px; height: 3px; top: 30px; left: 58px; animation-delay: 1.4s; }
+                .space-accent-overview .s4 { width: 2px; height: 2px; top: 46px; left: 84px; animation-delay: 0.5s; }
+                .space-accent-overview .s5 { width: 2px; height: 2px; top: 58px; left: 108px; animation-delay: 1.9s; }
+                .space-accent-overview .s6 { width: 3px; height: 3px; top: 14px; left: 132px; animation-delay: 1.1s; }
+                .space-accent-overview .s7 { width: 2px; height: 2px; top: 52px; left: 154px; animation-delay: 2.2s; }
+                .space-accent-overview .s8 { width: 2px; height: 2px; top: 24px; left: 178px; animation-delay: 0.9s; }
+                .space-accent-overview .s9 { width: 3px; height: 3px; top: 8px; left: 192px; animation-delay: 1.7s; }
+                .space-accent-overview .s10 { width: 2px; height: 2px; top: 62px; left: 172px; animation-delay: 2.4s; }
+                .space-accent-overview .shooting {
+                    position: absolute;
+                    top: 12px;
+                    left: 166px;
+                    width: 32px;
+                    height: 1.6px;
+                    background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.95));
+                    transform: rotate(-20deg);
+                    animation: shooting-overview 6s linear infinite;
+                }
+                .space-accent-overview .planet-wrap {
+                    position: absolute;
+                    right: 0;
+                    bottom: 1px;
+                    animation: float-overview 7s ease-in-out infinite;
+                }
+                @keyframes twinkle-overview {
+                    0%, 100% { opacity: 0.25; transform: scale(0.8); }
+                    50% { opacity: 1; transform: scale(1.5); }
+                }
+                @keyframes float-overview {
+                    0%, 100% { transform: translateY(0px); }
+                    50% { transform: translateY(-2px); }
+                }
+                @keyframes shooting-overview {
+                    0%, 70% { opacity: 0; transform: translate(0, 0) rotate(-20deg); }
+                    75% { opacity: 0.9; }
+                    100% { opacity: 0; transform: translate(-90px, 34px) rotate(-20deg); }
+                }
+            </style>
+            <div class="space-accent-overview" aria-hidden="true">
+                <div class="scene">
+                    <span class="star s1"></span>
+                    <span class="star s2"></span>
+                    <span class="star s3"></span>
+                    <span class="star s4"></span>
+                    <span class="star s5"></span>
+                    <span class="star s6"></span>
+                    <span class="star s7"></span>
+                    <span class="star s8"></span>
+                    <span class="star s9"></span>
+                    <span class="star s10"></span>
+                    <span class="shooting"></span>
+                    <svg class="planet-wrap" width="62" height="62" viewBox="0 0 64 64" role="img" aria-label="Space accent">
+                        <defs>
+                            <radialGradient id="planetFillOverview" cx="35%" cy="35%">
+                                <stop offset="0%" stop-color="#9FC5FF"/>
+                                <stop offset="100%" stop-color="#2F5D8A"/>
+                            </radialGradient>
+                        </defs>
+                        <circle cx="36" cy="34" r="15" fill="url(#planetFillOverview)"/>
+                        <ellipse cx="36" cy="34" rx="22" ry="6.2" fill="none" stroke="#D5E2F8" stroke-width="1.8">
+                            <animateTransform
+                                attributeName="transform"
+                                type="rotate"
+                                from="0 36 34"
+                                to="360 36 34"
+                                dur="18s"
+                                repeatCount="indefinite"
+                            />
+                        </ellipse>
+                    </svg>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 def safe_dataframe(obj: Any) -> pd.DataFrame:

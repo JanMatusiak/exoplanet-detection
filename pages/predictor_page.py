@@ -89,14 +89,120 @@ def load_feature_descriptions() -> dict[str, str]:
 
 
 def render_header(title: str, subtitle: str, links: dict[str, str]) -> None:
-    left, *right_cols = st.columns([7, 1, 1, 1])
+    left, *right_cols = st.columns([5, 1, 1, 1, 5])
     with left:
         st.title(title)
         st.caption(subtitle)
 
-    for col, (label, url) in zip(right_cols, links.items()):
+    for col, (label, url) in zip(right_cols[:-1], links.items()):
         with col:
             st.link_button(label, url, use_container_width=True)
+
+    with right_cols[-1]:
+        st.markdown(
+            """
+            <style>
+                .space-accent-predictor {
+                    position: relative;
+                    margin-left: auto;
+                    width: 440px;
+                    height: 114px;
+                    overflow: visible;
+                    background: transparent;
+                    box-shadow: none;
+                }
+                .space-accent-predictor .scene {
+                    position: absolute;
+                    right: 0;
+                    bottom: 0;
+                    width: 220px;
+                    height: 76px;
+                    transform-origin: right bottom;
+                    transform: scale(2, 1.5);
+                }
+                .space-accent-predictor .star {
+                    position: absolute;
+                    border-radius: 50%;
+                    background: #ffffff;
+                    animation: twinkle-predictor 2.7s ease-in-out infinite;
+                }
+                .space-accent-predictor .s1 { width: 2px; height: 2px; top: 11px; left: 8px; animation-delay: 0.3s; }
+                .space-accent-predictor .s2 { width: 3px; height: 3px; top: 20px; left: 34px; animation-delay: 1.1s; }
+                .space-accent-predictor .s3 { width: 2px; height: 2px; top: 34px; left: 60px; animation-delay: 0.7s; }
+                .space-accent-predictor .s4 { width: 2px; height: 2px; top: 48px; left: 86px; animation-delay: 2.0s; }
+                .space-accent-predictor .s5 { width: 3px; height: 3px; top: 56px; left: 110px; animation-delay: 1.6s; }
+                .space-accent-predictor .s6 { width: 2px; height: 2px; top: 14px; left: 134px; animation-delay: 2.3s; }
+                .space-accent-predictor .s7 { width: 2px; height: 2px; top: 52px; left: 156px; animation-delay: 0.9s; }
+                .space-accent-predictor .s8 { width: 2px; height: 2px; top: 24px; left: 176px; animation-delay: 0.6s; }
+                .space-accent-predictor .s9 { width: 3px; height: 3px; top: 9px; left: 192px; animation-delay: 1.9s; }
+                .space-accent-predictor .s10 { width: 2px; height: 2px; top: 63px; left: 172px; animation-delay: 2.5s; }
+                .space-accent-predictor .shooting {
+                    position: absolute;
+                    top: 13px;
+                    left: 166px;
+                    width: 32px;
+                    height: 1.6px;
+                    background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.95));
+                    transform: rotate(-22deg);
+                    animation: shooting-predictor 6.4s linear infinite;
+                }
+                .space-accent-predictor .planet-wrap {
+                    position: absolute;
+                    right: 0;
+                    bottom: 1px;
+                    animation: float-predictor 7.2s ease-in-out infinite;
+                }
+                @keyframes twinkle-predictor {
+                    0%, 100% { opacity: 0.23; transform: scale(0.8); }
+                    50% { opacity: 1; transform: scale(1.55); }
+                }
+                @keyframes float-predictor {
+                    0%, 100% { transform: translateY(0px); }
+                    50% { transform: translateY(-2px); }
+                }
+                @keyframes shooting-predictor {
+                    0%, 72% { opacity: 0; transform: translate(0, 0) rotate(-22deg); }
+                    78% { opacity: 0.95; }
+                    100% { opacity: 0; transform: translate(-90px, 34px) rotate(-22deg); }
+                }
+            </style>
+            <div class="space-accent-predictor" aria-hidden="true">
+                <div class="scene">
+                    <span class="star s1"></span>
+                    <span class="star s2"></span>
+                    <span class="star s3"></span>
+                    <span class="star s4"></span>
+                    <span class="star s5"></span>
+                    <span class="star s6"></span>
+                    <span class="star s7"></span>
+                    <span class="star s8"></span>
+                    <span class="star s9"></span>
+                    <span class="star s10"></span>
+                    <span class="shooting"></span>
+                    <svg class="planet-wrap" width="62" height="62" viewBox="0 0 64 64" role="img" aria-label="Space accent">
+                        <defs>
+                            <radialGradient id="planetFillPredictor" cx="35%" cy="35%">
+                                <stop offset="0%" stop-color="#A6CBFF"/>
+                                <stop offset="100%" stop-color="#315F8F"/>
+                            </radialGradient>
+                        </defs>
+                        <circle cx="36" cy="34" r="15" fill="url(#planetFillPredictor)"/>
+                        <ellipse cx="36" cy="34" rx="22" ry="6.2" fill="none" stroke="#D8E5F9" stroke-width="1.8">
+                            <animateTransform
+                                attributeName="transform"
+                                type="rotate"
+                                from="0 36 34"
+                                to="360 36 34"
+                                dur="18s"
+                                repeatCount="indefinite"
+                            />
+                        </ellipse>
+                    </svg>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 def choose_example_record(service, context) -> tuple[pd.DataFrame, dict[str, float], str, str]:
